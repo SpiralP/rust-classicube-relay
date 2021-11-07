@@ -322,14 +322,8 @@
 <span id="322">322</span>
 <span id="323">323</span>
 <span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::<span class="kw-2">*</span>;
-<span class="kw">use</span> <span class="ident">byteorder</span>::{<span class="ident">NetworkEndian</span>, <span class="ident">WriteBytesExt</span>};
+<span class="kw">use</span> <span class="ident">byteorder</span>::{<span class="ident">NetworkEndian</span>, <span class="ident">ReadBytesExt</span>, <span class="ident">WriteBytesExt</span>};
 <span class="kw">use</span> <span class="ident">lazy_static::lazy_static</span>;
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">collections::HashSet</span>,
@@ -393,10 +387,16 @@
         }
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decode</span>(<span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
-        <span class="macro">ensure!</span>(<span class="ident">data</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="ident">PLUGIN_MESSAGE_DATA_LENGTH</span>, <span class="string">&quot;wrong data len&quot;</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decode</span>(<span class="ident">data_stream</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">Flags::decode</span>(<span class="ident">data_stream</span>)<span class="question-mark">?</span>;
 
-        <span class="macro">todo!</span>();
+        <span class="kw">let</span> <span class="ident">packet</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">flags</span>.<span class="ident">is_packet_start</span> {
+            <span class="ident">Packet::Start</span>(<span class="ident">StartPacket::decode</span>(<span class="ident">flags</span>, <span class="ident">data_stream</span>)<span class="question-mark">?</span>)
+        } <span class="kw">else</span> {
+            <span class="ident">Packet::Continue</span>(<span class="ident">ContinuePacket::decode</span>(<span class="ident">flags</span>, <span class="ident">data_stream</span>)<span class="question-mark">?</span>)
+        };
+
+        <span class="prelude-val">Ok</span>(<span class="ident">packet</span>)
     }
 }
 
@@ -410,7 +410,7 @@
     <span class="kw">pub</span> <span class="ident">data_part</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 }
 <span class="kw">impl</span> <span class="ident">StartPacket</span> {
-    <span class="kw">const</span> <span class="ident">DATA_PART_LENGTH</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">64</span> <span class="op">-</span> <span class="number">2</span> <span class="op">*</span> <span class="number">2</span> <span class="op">-</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DATA_PART_LENGTH</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">64</span> <span class="op">-</span> <span class="number">2</span> <span class="op">*</span> <span class="number">2</span> <span class="op">-</span> <span class="number">1</span>;
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream_id</span>: <span class="ident">u8</span>, <span class="ident">scope</span>: <span class="ident">Scope</span>, <span class="ident">data_length</span>: <span class="ident">u16</span>, <span class="ident">data_part</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="macro">ensure!</span>(
@@ -456,6 +456,22 @@
 
         <span class="prelude-val">Ok</span>(<span class="ident">data</span>)
     }
+
+    <span class="kw">fn</span> <span class="ident">decode</span>(<span class="ident">flags</span>: <span class="ident">Flags</span>, <span class="ident">data_stream</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="ident">Scope::decode</span>(<span class="ident">data_stream</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">data_length</span> <span class="op">=</span> <span class="ident">data_stream</span>.<span class="ident">read_u16</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data_part</span> <span class="op">=</span> [<span class="number">0</span>; <span class="ident"><span class="self">Self</span>::DATA_PART_LENGTH</span>];
+        <span class="kw">let</span> <span class="ident">n</span> <span class="op">=</span> <span class="ident">data_stream</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">data_part</span>)<span class="question-mark">?</span>;
+        <span class="macro">ensure!</span>(<span class="ident">n</span> <span class="op">==</span> <span class="ident"><span class="self">Self</span>::DATA_PART_LENGTH</span>, <span class="string">&quot;couldn&#39;t read full data_part&quot;</span>);
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">flags</span>,
+            <span class="ident">scope</span>,
+            <span class="ident">data_length</span>,
+            <span class="ident">data_part</span>: <span class="ident">data_part</span>.<span class="ident">to_vec</span>(),
+        })
+    }
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
@@ -464,7 +480,7 @@
     <span class="kw">pub</span> <span class="ident">data_part</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 }
 <span class="kw">impl</span> <span class="ident">ContinuePacket</span> {
-    <span class="kw">const</span> <span class="ident">DATA_PART_LENGTH</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">64</span> <span class="op">-</span> <span class="number">1</span>;
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">DATA_PART_LENGTH</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">64</span> <span class="op">-</span> <span class="number">1</span>;
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">stream_id</span>: <span class="ident">u8</span>, <span class="ident">data_part</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="macro">ensure!</span>(
@@ -501,6 +517,17 @@
 
         <span class="prelude-val">Ok</span>(<span class="ident">data</span>)
     }
+
+    <span class="kw">fn</span> <span class="ident">decode</span>(<span class="ident">flags</span>: <span class="ident">Flags</span>, <span class="ident">data_stream</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data_part</span> <span class="op">=</span> [<span class="number">0</span>; <span class="ident"><span class="self">Self</span>::DATA_PART_LENGTH</span>];
+        <span class="kw">let</span> <span class="ident">n</span> <span class="op">=</span> <span class="ident">data_stream</span>.<span class="ident">read</span>(<span class="kw-2">&amp;mut</span> <span class="ident">data_part</span>)<span class="question-mark">?</span>;
+        <span class="macro">ensure!</span>(<span class="ident">n</span> <span class="op">==</span> <span class="ident"><span class="self">Self</span>::DATA_PART_LENGTH</span>, <span class="string">&quot;couldn&#39;t read full data_part&quot;</span>);
+
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">flags</span>,
+            <span class="ident">data_part</span>: <span class="ident">data_part</span>.<span class="ident">to_vec</span>(),
+        })
+    }
 }
 
 <span class="comment">// u8</span>
@@ -525,6 +552,16 @@
         <span class="ident">data</span>.<span class="ident">write_u8</span>(<span class="ident">b</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(<span class="ident">data</span>)
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">decode</span>(<span class="ident">data_stream</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">byte</span> <span class="op">=</span> <span class="ident">data_stream</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">is_packet_start</span> <span class="op">=</span> (<span class="ident">byte</span> <span class="op">&amp;</span> <span class="number">0b1000_0000</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>;
+        <span class="kw">let</span> <span class="ident">stream_id</span> <span class="op">=</span> <span class="ident">byte</span> <span class="op">&amp;</span> <span class="number">0b0111_1111</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
+            <span class="ident">is_packet_start</span>,
+            <span class="ident">stream_id</span>,
+        })
     }
 }
 
@@ -555,7 +592,7 @@
     },
 }
 <span class="kw">impl</span> <span class="ident">Scope</span> {
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">id</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">kind</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">u8</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Scope::Player</span> { .. } =&gt; <span class="number">0</span>,
             <span class="ident">Scope::Map</span> { .. } =&gt; <span class="number">1</span>,
@@ -566,7 +603,7 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encode</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="number">2</span>);
 
-        <span class="ident">data</span>.<span class="ident">write_u8</span>(<span class="self">self</span>.<span class="ident">id</span>())<span class="question-mark">?</span>;
+        <span class="ident">data</span>.<span class="ident">write_u8</span>(<span class="self">self</span>.<span class="ident">kind</span>())<span class="question-mark">?</span>;
 
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="ident">Scope::Player</span> { <span class="ident">player_id</span> } =&gt; {
@@ -583,80 +620,31 @@
 
         <span class="prelude-val">Ok</span>(<span class="ident">data</span>)
     }
-}
 
-<span class="attribute">#[<span class="ident">test</span>]</span>
-<span class="kw">fn</span> <span class="ident">test_plugin_messages_make_packets</span>() {
-    <span class="comment">// test 0 length</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">packets</span> <span class="op">=</span> <span class="ident">Packet::make_packets</span>(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[], <span class="ident">Scope::Player</span> { <span class="ident">player_id</span>: <span class="number">0</span> }).<span class="ident">unwrap</span>();
-    <span class="macro">assert_eq!</span>(<span class="ident">packets</span>.<span class="ident">len</span>(), <span class="number">1</span>);
-    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Packet::Start</span>(<span class="ident">StartPacket</span> {
-        <span class="ident">flags</span>,
-        <span class="ident">scope</span>: <span class="ident">_scope</span>,
-        <span class="ident">data_length</span>,
-        <span class="ident">data_part</span>,
-    }) <span class="op">=</span> <span class="ident">packets</span>.<span class="ident">remove</span>(<span class="number">0</span>)
-    {
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">is_packet_start</span>, <span class="bool-val">true</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">stream_id</span>, <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">data_length</span>, <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">data_part</span>, <span class="macro">vec!</span>[<span class="number">0</span>; <span class="number">59</span>]);
-    } <span class="kw">else</span> {
-        <span class="macro">unreachable!</span>();
-    }
+    <span class="kw">fn</span> <span class="ident">decode</span>(<span class="ident">data_stream</span>: <span class="kw-2">&amp;mut</span> <span class="kw">impl</span> <span class="ident">Read</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">kind</span> <span class="op">=</span> <span class="ident">data_stream</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">extra</span> <span class="op">=</span> <span class="ident">data_stream</span>.<span class="ident">read_u8</span>()<span class="question-mark">?</span>;
 
-    <span class="comment">// test 1 single start packet</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">packets</span> <span class="op">=</span> <span class="ident">Packet::make_packets</span>(<span class="string">b&quot;helloooo&quot;</span>, <span class="ident">Scope::Player</span> { <span class="ident">player_id</span>: <span class="number">0</span> }).<span class="ident">unwrap</span>();
-    <span class="macro">assert_eq!</span>(<span class="ident">packets</span>.<span class="ident">len</span>(), <span class="number">1</span>);
-    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Packet::Start</span>(<span class="ident">StartPacket</span> {
-        <span class="ident">flags</span>,
-        <span class="ident">scope</span>: <span class="ident">_scope</span>,
-        <span class="ident">data_length</span>,
-        <span class="ident">data_part</span>,
-    }) <span class="op">=</span> <span class="ident">packets</span>.<span class="ident">remove</span>(<span class="number">0</span>)
-    {
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">is_packet_start</span>, <span class="bool-val">true</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">stream_id</span>, <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">data_length</span>, <span class="number">8</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span> <span class="op">=</span> <span class="string">b&quot;helloooo&quot;</span>.<span class="ident">to_vec</span>();
-        <span class="ident">v</span>.<span class="ident">resize</span>(<span class="number">59</span>, <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">data_part</span>, <span class="ident">v</span>);
-    } <span class="kw">else</span> {
-        <span class="macro">unreachable!</span>();
-    }
+        <span class="kw">let</span> <span class="ident">scope</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">kind</span> {
+            <span class="number">0</span> =&gt; <span class="ident">Scope::Player</span> { <span class="ident">player_id</span>: <span class="ident">extra</span> },
 
-    <span class="comment">// test multiple packets</span>
-    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">packets</span> <span class="op">=</span> <span class="ident">Packet::make_packets</span>(<span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">123</span>; <span class="number">64</span>], <span class="ident">Scope::Player</span> { <span class="ident">player_id</span>: <span class="number">0</span> }).<span class="ident">unwrap</span>();
-    <span class="macro">assert_eq!</span>(<span class="ident">packets</span>.<span class="ident">len</span>(), <span class="number">2</span>);
-    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Packet::Start</span>(<span class="ident">StartPacket</span> {
-        <span class="ident">flags</span>,
-        <span class="ident">scope</span>: <span class="ident">_scope</span>,
-        <span class="ident">data_length</span>,
-        <span class="ident">data_part</span>,
-    }) <span class="op">=</span> <span class="ident">packets</span>.<span class="ident">remove</span>(<span class="number">0</span>)
-    {
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">is_packet_start</span>, <span class="bool-val">true</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">stream_id</span>, <span class="number">2</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">data_length</span>, <span class="number">64</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">data_part</span>, <span class="macro">vec!</span>[<span class="number">123</span>; <span class="number">59</span>]);
-    } <span class="kw">else</span> {
-        <span class="macro">unreachable!</span>();
-    }
-    <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Packet::Continue</span>(<span class="ident">ContinuePacket</span> { <span class="ident">flags</span>, <span class="ident">data_part</span> }) <span class="op">=</span> <span class="ident">packets</span>.<span class="ident">remove</span>(<span class="number">0</span>) {
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">is_packet_start</span>, <span class="bool-val">false</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">flags</span>.<span class="ident">stream_id</span>, <span class="number">2</span>);
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">v</span> <span class="op">=</span> <span class="macro">vec!</span>[<span class="number">123</span>; <span class="number">5</span>];
-        <span class="ident">v</span>.<span class="ident">resize</span>(<span class="number">63</span>, <span class="number">0</span>);
-        <span class="macro">assert_eq!</span>(<span class="ident">data_part</span>, <span class="ident">v</span>);
-    } <span class="kw">else</span> {
-        <span class="macro">unreachable!</span>();
-    }
+            <span class="number">1</span> =&gt; {
+                <span class="kw">let</span> <span class="ident">have_plugin</span> <span class="op">=</span> (<span class="ident">extra</span> <span class="op">&amp;</span> <span class="number">0b1000_0000</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>;
+                <span class="ident">Scope::Map</span> { <span class="ident">have_plugin</span> }
+            }
 
-    <span class="comment">// test &quot;no free outgoing ids&quot;</span>
-    <span class="kw">for</span> <span class="kw">_</span> <span class="kw">in</span> <span class="number">0</span>..<span class="number">128</span> <span class="op">-</span> <span class="number">3</span> {
-        <span class="ident">Packet::make_packets</span>(<span class="string">b&quot;&quot;</span>, <span class="ident">Scope::Player</span> { <span class="ident">player_id</span>: <span class="number">0</span> }).<span class="ident">unwrap</span>();
+            <span class="number">2</span> =&gt; {
+                <span class="kw">let</span> <span class="ident">have_plugin</span> <span class="op">=</span> (<span class="ident">extra</span> <span class="op">&amp;</span> <span class="number">0b1000_0000</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span>;
+                <span class="ident">Scope::Server</span> { <span class="ident">have_plugin</span> }
+            }
+
+            <span class="kw">_</span> =&gt; {
+                <span class="macro">bail!</span>(<span class="string">&quot;invalid scope {:?} with extra {:?}&quot;</span>, <span class="ident">kind</span>, <span class="ident">extra</span>);
+            }
+        };
+
+        <span class="prelude-val">Ok</span>(<span class="ident">scope</span>)
     }
-    <span class="macro">assert!</span>(<span class="ident">Packet::make_packets</span>(<span class="string">b&quot;&quot;</span>, <span class="ident">Scope::Player</span> { <span class="ident">player_id</span>: <span class="number">0</span> }).<span class="ident">is_err</span>());
 }
 </code></pre></div>
 </section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="classicube_relay" data-search-index-js="../../search-index.js" data-search-js="../../search.js"></div>
