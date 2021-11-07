@@ -26,7 +26,7 @@ fn new_outgoing_packet_id() -> Result<u8> {
 }
 
 // [u8; 64]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Packet {
     Start(StartPacket),
     Continue(ContinuePacket),
@@ -76,7 +76,7 @@ impl Packet {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct StartPacket {
     pub stream_id: u8,
     // this is always Player if sending from server
@@ -122,7 +122,13 @@ impl StartPacket {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut data = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
 
-        data.write_u8(self.stream_id)?;
+        data.write_all(
+            &Flags {
+                is_packet_start: true,
+                stream_id: self.stream_id,
+            }
+            .encode()?,
+        )?;
         data.write_all(&self.scope.encode()?)?;
         data.write_u16::<NetworkEndian>(self.data_length)?;
         data.write_all(&self.data_part)?;
@@ -147,7 +153,7 @@ impl StartPacket {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ContinuePacket {
     pub stream_id: u8,
     pub data_part: Vec<u8>,
@@ -182,7 +188,13 @@ impl ContinuePacket {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut data = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
 
-        data.write_u8(self.stream_id)?;
+        data.write_all(
+            &Flags {
+                is_packet_start: false,
+                stream_id: self.stream_id,
+            }
+            .encode()?,
+        )?;
         data.write_all(&self.data_part)?;
 
         Ok(data)
@@ -203,7 +215,7 @@ impl ContinuePacket {
 // u8
 // is_packet_start: mask 1000_0000
 // stream_id: mask 0111_1111
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Flags {
     // is a start packet, or is a continuation
     pub is_packet_start: bool,
@@ -238,7 +250,7 @@ impl Flags {
 // u16
 // byte 0: scope_id: u8,
 // byte 1: scope_extra: u8,
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Scope {
     // a single player
     Player {

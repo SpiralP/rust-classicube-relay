@@ -232,3 +232,15 @@ fn test_make_packets() {
     }
     assert!(Packet::make_packets(b"", Scope::Player { player_id: 0 }).is_err());
 }
+
+#[test]
+fn test_encode_decode() {
+    let mut data_stream = Cursor::new(vec![]);
+    let packet = Packet::Start(
+        StartPacket::new_reader(1, Scope::Player { player_id: 2 }, 3, &mut data_stream).unwrap(),
+    );
+    let packet_data = packet.encode().unwrap();
+    let decoded_packet = Packet::decode(&mut Cursor::new(packet_data)).unwrap();
+
+    assert_eq!(packet, decoded_packet);
+}
