@@ -1,0 +1,10 @@
+[package]
+name = "classicube-relay"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+byteorder = "1"
+error-chain = "0.12"
+lazy_static = "1"
