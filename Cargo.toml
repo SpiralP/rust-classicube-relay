@@ -8,3 +8,6 @@ publish = false
 byteorder = "1"
 error-chain = "0.12"
 lazy_static = "1"
+
+[features]
+ci = []
