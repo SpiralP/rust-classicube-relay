@@ -316,6 +316,18 @@
 <span id="316">316</span>
 <span id="317">317</span>
 <span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="ident"><span class="kw">crate</span>::error</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">byteorder</span>::{<span class="ident">NetworkEndian</span>, <span class="ident">ReadBytesExt</span>, <span class="ident">WriteBytesExt</span>};
 <span class="kw">use</span> <span class="ident">lazy_static::lazy_static</span>;
@@ -344,7 +356,7 @@
 }
 
 <span class="comment">// [u8; 64]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Packet</span> {
     <span class="ident">Start</span>(<span class="ident">StartPacket</span>),
     <span class="ident">Continue</span>(<span class="ident">ContinuePacket</span>),
@@ -394,7 +406,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">StartPacket</span> {
     <span class="kw">pub</span> <span class="ident">stream_id</span>: <span class="ident">u8</span>,
     <span class="comment">// this is always Player if sending from server</span>
@@ -440,7 +452,13 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encode</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">PLUGIN_MESSAGE_DATA_LENGTH</span>);
 
-        <span class="ident">data</span>.<span class="ident">write_u8</span>(<span class="self">self</span>.<span class="ident">stream_id</span>)<span class="question-mark">?</span>;
+        <span class="ident">data</span>.<span class="ident">write_all</span>(
+            <span class="kw-2">&amp;</span><span class="ident">Flags</span> {
+                <span class="ident">is_packet_start</span>: <span class="bool-val">true</span>,
+                <span class="ident">stream_id</span>: <span class="self">self</span>.<span class="ident">stream_id</span>,
+            }
+            .<span class="ident">encode</span>()<span class="question-mark">?</span>,
+        )<span class="question-mark">?</span>;
         <span class="ident">data</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">scope</span>.<span class="ident">encode</span>()<span class="question-mark">?</span>)<span class="question-mark">?</span>;
         <span class="ident">data</span>.<span class="ident">write_u16</span>::<span class="op">&lt;</span><span class="ident">NetworkEndian</span><span class="op">&gt;</span>(<span class="self">self</span>.<span class="ident">data_length</span>)<span class="question-mark">?</span>;
         <span class="ident">data</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">data_part</span>)<span class="question-mark">?</span>;
@@ -465,7 +483,7 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ContinuePacket</span> {
     <span class="kw">pub</span> <span class="ident">stream_id</span>: <span class="ident">u8</span>,
     <span class="kw">pub</span> <span class="ident">data_part</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
@@ -500,7 +518,13 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">encode</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">Vec::with_capacity</span>(<span class="ident">PLUGIN_MESSAGE_DATA_LENGTH</span>);
 
-        <span class="ident">data</span>.<span class="ident">write_u8</span>(<span class="self">self</span>.<span class="ident">stream_id</span>)<span class="question-mark">?</span>;
+        <span class="ident">data</span>.<span class="ident">write_all</span>(
+            <span class="kw-2">&amp;</span><span class="ident">Flags</span> {
+                <span class="ident">is_packet_start</span>: <span class="bool-val">false</span>,
+                <span class="ident">stream_id</span>: <span class="self">self</span>.<span class="ident">stream_id</span>,
+            }
+            .<span class="ident">encode</span>()<span class="question-mark">?</span>,
+        )<span class="question-mark">?</span>;
         <span class="ident">data</span>.<span class="ident">write_all</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">data_part</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(<span class="ident">data</span>)
@@ -521,7 +545,7 @@
 <span class="comment">// u8</span>
 <span class="comment">// is_packet_start: mask 1000_0000</span>
 <span class="comment">// stream_id: mask 0111_1111</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Flags</span> {
     <span class="comment">// is a start packet, or is a continuation</span>
     <span class="kw">pub</span> <span class="ident">is_packet_start</span>: <span class="ident">bool</span>,
@@ -556,7 +580,7 @@
 <span class="comment">// u16</span>
 <span class="comment">// byte 0: scope_id: u8,</span>
 <span class="comment">// byte 1: scope_extra: u8,</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Scope</span> {
     <span class="comment">// a single player</span>
     <span class="ident">Player</span> {
