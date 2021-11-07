@@ -2,6 +2,27 @@ use classicube_relay::packet::*;
 use std::io::Cursor;
 
 #[test]
+fn test_decode_flags() {
+    let data = &mut vec![
+        // is_packet_start: true; stream_id: 3
+        0b1000_0011,
+    ];
+    data.resize(PLUGIN_MESSAGE_DATA_LENGTH, 0);
+    let flags = Flags::decode(&mut Cursor::new(data)).unwrap();
+    assert_eq!(flags.is_packet_start, true);
+    assert_eq!(flags.stream_id, 3);
+
+    let data = &mut vec![
+        // is_packet_start: true; stream_id: 3
+        0b0000_0011,
+    ];
+    data.resize(PLUGIN_MESSAGE_DATA_LENGTH, 0);
+    let flags = Flags::decode(&mut Cursor::new(data)).unwrap();
+    assert_eq!(flags.is_packet_start, false);
+    assert_eq!(flags.stream_id, 3);
+}
+
+#[test]
 fn test_decode_start_packet() {
     let mut data = vec![
         // is_packet_start: true; stream_id: 3
@@ -20,14 +41,13 @@ fn test_decode_start_packet() {
 
     let packet = Packet::decode(&mut Cursor::new(data)).unwrap();
     if let Packet::Start(StartPacket {
-        flags,
+        stream_id,
         scope: _scope,
         data_length,
         data_part,
     }) = packet
     {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 3);
+        assert_eq!(stream_id, 3);
         assert_eq!(data_length, 1);
         let mut v = vec![0xFF];
         v.resize(59, 0);
@@ -57,9 +77,12 @@ fn test_decode_continue_packet() {
     data.resize(PLUGIN_MESSAGE_DATA_LENGTH, 0);
 
     let packet = Packet::decode(&mut Cursor::new(data)).unwrap();
-    if let Packet::Continue(ContinuePacket { flags, data_part }) = packet {
-        assert_eq!(flags.is_packet_start, false);
-        assert_eq!(flags.stream_id, 3);
+    if let Packet::Continue(ContinuePacket {
+        stream_id,
+        data_part,
+    }) = packet
+    {
+        assert_eq!(stream_id, 3);
         let mut v = vec![0xFF];
         v.resize(63, 0);
         assert_eq!(data_part, v);
@@ -74,14 +97,13 @@ fn test_make_packets() {
     let mut packets = Packet::make_packets(&vec![], Scope::Player { player_id: 0 }).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
-        flags,
+        stream_id,
         scope: _scope,
         data_length,
         data_part,
     }) = packets.remove(0)
     {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 0);
+        assert_eq!(stream_id, 0);
         assert_eq!(data_length, 0);
         assert_eq!(data_part, vec![0; 59]);
     } else {
@@ -92,14 +114,13 @@ fn test_make_packets() {
     let mut packets = Packet::make_packets(b"helloooo", Scope::Player { player_id: 0 }).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
-        flags,
+        stream_id,
         scope: _scope,
         data_length,
         data_part,
     }) = packets.remove(0)
     {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 1);
+        assert_eq!(stream_id, 1);
         assert_eq!(data_length, 8);
         let mut v = b"helloooo".to_vec();
         v.resize(59, 0);
@@ -112,22 +133,24 @@ fn test_make_packets() {
     let mut packets = Packet::make_packets(&vec![123; 64], Scope::Player { player_id: 0 }).unwrap();
     assert_eq!(packets.len(), 2);
     if let Packet::Start(StartPacket {
-        flags,
+        stream_id,
         scope: _scope,
         data_length,
         data_part,
     }) = packets.remove(0)
     {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 2);
+        assert_eq!(stream_id, 2);
         assert_eq!(data_length, 64);
         assert_eq!(data_part, vec![123; 59]);
     } else {
         unreachable!();
     }
-    if let Packet::Continue(ContinuePacket { flags, data_part }) = packets.remove(0) {
-        assert_eq!(flags.is_packet_start, false);
-        assert_eq!(flags.stream_id, 2);
+    if let Packet::Continue(ContinuePacket {
+        stream_id,
+        data_part,
+    }) = packets.remove(0)
+    {
+        assert_eq!(stream_id, 2);
         let mut v = vec![123; 5];
         v.resize(63, 0);
         assert_eq!(data_part, v);
@@ -139,14 +162,13 @@ fn test_make_packets() {
     let mut packets = Packet::make_packets(&vec![123; 59], Scope::Player { player_id: 0 }).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
-        flags,
+        stream_id,
         scope: _scope,
         data_length,
         data_part,
     }) = packets.remove(0)
     {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 3);
+        assert_eq!(stream_id, 3);
         assert_eq!(data_length, 59);
         assert_eq!(data_part, vec![123; 59]);
     } else {
@@ -170,23 +192,25 @@ fn test_make_packets() {
         (1.0 + ((65535.0 - 59.0) / 63.0 as f32).ceil()) as usize
     );
     if let Packet::Start(StartPacket {
-        flags,
+        stream_id,
         scope: _scope,
         data_length,
         data_part,
     }) = packets.remove(0)
     {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 4);
+        assert_eq!(stream_id, 4);
         assert_eq!(data_length, u16::MAX);
         assert_eq!(data_part, vec![123; 59]);
     } else {
         unreachable!();
     }
     while !packets.is_empty() {
-        if let Packet::Continue(ContinuePacket { flags, data_part }) = packets.remove(0) {
-            assert_eq!(flags.is_packet_start, false);
-            assert_eq!(flags.stream_id, 4);
+        if let Packet::Continue(ContinuePacket {
+            stream_id,
+            data_part,
+        }) = packets.remove(0)
+        {
+            assert_eq!(stream_id, 4);
             if !packets.is_empty() {
                 assert_eq!(data_part, vec![123; 63]);
             } else {

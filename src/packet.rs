@@ -67,9 +67,9 @@ impl Packet {
         let flags = Flags::decode(data_stream)?;
 
         let packet = if flags.is_packet_start {
-            Packet::Start(StartPacket::decode(flags, data_stream)?)
+            Packet::Start(StartPacket::decode(flags.stream_id, data_stream)?)
         } else {
-            Packet::Continue(ContinuePacket::decode(flags, data_stream)?)
+            Packet::Continue(ContinuePacket::decode(flags.stream_id, data_stream)?)
         };
 
         Ok(packet)
@@ -78,7 +78,7 @@ impl Packet {
 
 #[derive(Debug)]
 pub struct StartPacket {
-    pub flags: Flags,
+    pub stream_id: u8,
     // this is always Player if sending from server
     pub scope: Scope,
     pub data_length: u16,
@@ -95,10 +95,7 @@ impl StartPacket {
         );
 
         Ok(Self {
-            flags: Flags {
-                is_packet_start: true,
-                stream_id,
-            },
+            stream_id,
             scope,
             data_length,
             data_part,
@@ -125,7 +122,7 @@ impl StartPacket {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut data = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
 
-        data.write_all(&self.flags.encode()?)?;
+        data.write_u8(self.stream_id)?;
         data.write_all(&self.scope.encode()?)?;
         data.write_u16::<NetworkEndian>(self.data_length)?;
         data.write_all(&self.data_part)?;
@@ -133,7 +130,7 @@ impl StartPacket {
         Ok(data)
     }
 
-    fn decode(flags: Flags, data_stream: &mut impl Read) -> Result<Self> {
+    fn decode(stream_id: u8, data_stream: &mut impl Read) -> Result<Self> {
         let scope = Scope::decode(data_stream)?;
         let data_length = data_stream.read_u16::<NetworkEndian>()?;
 
@@ -142,7 +139,7 @@ impl StartPacket {
         ensure!(n == Self::DATA_PART_LENGTH, "couldn't read full data_part");
 
         Ok(Self {
-            flags,
+            stream_id,
             scope,
             data_length,
             data_part: data_part.to_vec(),
@@ -152,7 +149,7 @@ impl StartPacket {
 
 #[derive(Debug)]
 pub struct ContinuePacket {
-    pub flags: Flags,
+    pub stream_id: u8,
     pub data_part: Vec<u8>,
 }
 impl ContinuePacket {
@@ -165,10 +162,7 @@ impl ContinuePacket {
         );
 
         Ok(Self {
-            flags: Flags {
-                is_packet_start: false,
-                stream_id,
-            },
+            stream_id,
             data_part,
         })
     }
@@ -188,19 +182,19 @@ impl ContinuePacket {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut data = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
 
-        data.write_all(&self.flags.encode()?)?;
+        data.write_u8(self.stream_id)?;
         data.write_all(&self.data_part)?;
 
         Ok(data)
     }
 
-    fn decode(flags: Flags, data_stream: &mut impl Read) -> Result<Self> {
+    fn decode(stream_id: u8, data_stream: &mut impl Read) -> Result<Self> {
         let mut data_part = [0; Self::DATA_PART_LENGTH];
         let n = data_stream.read(&mut data_part)?;
         ensure!(n == Self::DATA_PART_LENGTH, "couldn't read full data_part");
 
         Ok(Self {
-            flags,
+            stream_id,
             data_part: data_part.to_vec(),
         })
     }
