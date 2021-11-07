@@ -1,5 +1,5 @@
 use crate::error::*;
-use byteorder::{NetworkEndian, WriteBytesExt};
+use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use lazy_static::lazy_static;
 use std::{
     collections::HashSet,
@@ -63,10 +63,16 @@ impl Packet {
         }
     }
 
-    pub fn decode(data: &[u8]) -> Result<Self> {
-        ensure!(data.len() == PLUGIN_MESSAGE_DATA_LENGTH, "wrong data len");
+    pub fn decode(data_stream: &mut impl Read) -> Result<Self> {
+        let flags = Flags::decode(data_stream)?;
 
-        todo!();
+        let packet = if flags.is_packet_start {
+            Packet::Start(StartPacket::decode(flags, data_stream)?)
+        } else {
+            Packet::Continue(ContinuePacket::decode(flags, data_stream)?)
+        };
+
+        Ok(packet)
     }
 }
 
@@ -80,7 +86,7 @@ pub struct StartPacket {
     pub data_part: Vec<u8>,
 }
 impl StartPacket {
-    const DATA_PART_LENGTH: usize = 64 - 2 * 2 - 1;
+    pub const DATA_PART_LENGTH: usize = 64 - 2 * 2 - 1;
 
     pub fn new(stream_id: u8, scope: Scope, data_length: u16, data_part: Vec<u8>) -> Result<Self> {
         ensure!(
@@ -126,6 +132,22 @@ impl StartPacket {
 
         Ok(data)
     }
+
+    fn decode(flags: Flags, data_stream: &mut impl Read) -> Result<Self> {
+        let scope = Scope::decode(data_stream)?;
+        let data_length = data_stream.read_u16::<NetworkEndian>()?;
+
+        let mut data_part = [0; Self::DATA_PART_LENGTH];
+        let n = data_stream.read(&mut data_part)?;
+        ensure!(n == Self::DATA_PART_LENGTH, "couldn't read full data_part");
+
+        Ok(Self {
+            flags,
+            scope,
+            data_length,
+            data_part: data_part.to_vec(),
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -134,7 +156,7 @@ pub struct ContinuePacket {
     pub data_part: Vec<u8>,
 }
 impl ContinuePacket {
-    const DATA_PART_LENGTH: usize = 64 - 1;
+    pub const DATA_PART_LENGTH: usize = 64 - 1;
 
     pub fn new(stream_id: u8, data_part: Vec<u8>) -> Result<Self> {
         ensure!(
@@ -171,6 +193,17 @@ impl ContinuePacket {
 
         Ok(data)
     }
+
+    fn decode(flags: Flags, data_stream: &mut impl Read) -> Result<Self> {
+        let mut data_part = [0; Self::DATA_PART_LENGTH];
+        let n = data_stream.read(&mut data_part)?;
+        ensure!(n == Self::DATA_PART_LENGTH, "couldn't read full data_part");
+
+        Ok(Self {
+            flags,
+            data_part: data_part.to_vec(),
+        })
+    }
 }
 
 // u8
@@ -195,6 +228,16 @@ impl Flags {
         data.write_u8(b)?;
 
         Ok(data)
+    }
+
+    pub fn decode(data_stream: &mut impl Read) -> Result<Self> {
+        let byte = data_stream.read_u8()?;
+        let is_packet_start = (byte & 0b1000_0000) != 0;
+        let stream_id = byte & 0b0111_1111;
+        Ok(Self {
+            is_packet_start,
+            stream_id,
+        })
     }
 }
 
@@ -225,7 +268,7 @@ pub enum Scope {
     },
 }
 impl Scope {
-    pub fn id(&self) -> u8 {
+    pub fn kind(&self) -> u8 {
         match self {
             Scope::Player { .. } => 0,
             Scope::Map { .. } => 1,
@@ -236,7 +279,7 @@ impl Scope {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut data = Vec::with_capacity(2);
 
-        data.write_u8(self.id())?;
+        data.write_u8(self.kind())?;
 
         match self {
             Scope::Player { player_id } => {
@@ -253,78 +296,29 @@ impl Scope {
 
         Ok(data)
     }
-}
 
-#[test]
-fn test_plugin_messages_make_packets() {
-    // test 0 length
-    let mut packets = Packet::make_packets(&vec![], Scope::Player { player_id: 0 }).unwrap();
-    assert_eq!(packets.len(), 1);
-    if let Packet::Start(StartPacket {
-        flags,
-        scope: _scope,
-        data_length,
-        data_part,
-    }) = packets.remove(0)
-    {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 0);
-        assert_eq!(data_length, 0);
-        assert_eq!(data_part, vec![0; 59]);
-    } else {
-        unreachable!();
-    }
+    fn decode(data_stream: &mut impl Read) -> Result<Self> {
+        let kind = data_stream.read_u8()?;
+        let extra = data_stream.read_u8()?;
 
-    // test 1 single start packet
-    let mut packets = Packet::make_packets(b"helloooo", Scope::Player { player_id: 0 }).unwrap();
-    assert_eq!(packets.len(), 1);
-    if let Packet::Start(StartPacket {
-        flags,
-        scope: _scope,
-        data_length,
-        data_part,
-    }) = packets.remove(0)
-    {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 1);
-        assert_eq!(data_length, 8);
-        let mut v = b"helloooo".to_vec();
-        v.resize(59, 0);
-        assert_eq!(data_part, v);
-    } else {
-        unreachable!();
-    }
+        let scope = match kind {
+            0 => Scope::Player { player_id: extra },
 
-    // test multiple packets
-    let mut packets = Packet::make_packets(&vec![123; 64], Scope::Player { player_id: 0 }).unwrap();
-    assert_eq!(packets.len(), 2);
-    if let Packet::Start(StartPacket {
-        flags,
-        scope: _scope,
-        data_length,
-        data_part,
-    }) = packets.remove(0)
-    {
-        assert_eq!(flags.is_packet_start, true);
-        assert_eq!(flags.stream_id, 2);
-        assert_eq!(data_length, 64);
-        assert_eq!(data_part, vec![123; 59]);
-    } else {
-        unreachable!();
-    }
-    if let Packet::Continue(ContinuePacket { flags, data_part }) = packets.remove(0) {
-        assert_eq!(flags.is_packet_start, false);
-        assert_eq!(flags.stream_id, 2);
-        let mut v = vec![123; 5];
-        v.resize(63, 0);
-        assert_eq!(data_part, v);
-    } else {
-        unreachable!();
-    }
+            1 => {
+                let have_plugin = (extra & 0b1000_0000) != 0;
+                Scope::Map { have_plugin }
+            }
 
-    // test "no free outgoing ids"
-    for _ in 0..128 - 3 {
-        Packet::make_packets(b"", Scope::Player { player_id: 0 }).unwrap();
+            2 => {
+                let have_plugin = (extra & 0b1000_0000) != 0;
+                Scope::Server { have_plugin }
+            }
+
+            _ => {
+                bail!("invalid scope {:?} with extra {:?}", kind, extra);
+            }
+        };
+
+        Ok(scope)
     }
-    assert!(Packet::make_packets(b"", Scope::Player { player_id: 0 }).is_err());
 }
