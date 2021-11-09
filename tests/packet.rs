@@ -9,7 +9,7 @@ fn test_decode_flags() {
     ];
     data.resize(PLUGIN_MESSAGE_DATA_LENGTH, 0);
     let flags = Flags::decode(&mut Cursor::new(data)).unwrap();
-    assert_eq!(flags.is_packet_start, true);
+    assert!(flags.is_packet_start);
     assert_eq!(flags.stream_id, 3);
 
     let data = &mut vec![
@@ -18,7 +18,7 @@ fn test_decode_flags() {
     ];
     data.resize(PLUGIN_MESSAGE_DATA_LENGTH, 0);
     let flags = Flags::decode(&mut Cursor::new(data)).unwrap();
-    assert_eq!(flags.is_packet_start, false);
+    assert!(!flags.is_packet_start);
     assert_eq!(flags.stream_id, 3);
 }
 
@@ -94,7 +94,7 @@ fn test_decode_continue_packet() {
 #[test]
 fn test_make_packets() {
     // test 0 length
-    let mut packets = Packet::make_packets(&vec![], Scope::Player { player_id: 0 }).unwrap();
+    let mut packets = Packet::make_packets(&[], Scope::Player { player_id: 0 }).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
         stream_id,
@@ -130,7 +130,7 @@ fn test_make_packets() {
     }
 
     // test multiple packets
-    let mut packets = Packet::make_packets(&vec![123; 64], Scope::Player { player_id: 0 }).unwrap();
+    let mut packets = Packet::make_packets(&[123; 64], Scope::Player { player_id: 0 }).unwrap();
     assert_eq!(packets.len(), 2);
     if let Packet::Start(StartPacket {
         stream_id,
@@ -159,7 +159,7 @@ fn test_make_packets() {
     }
 
     // test max size single packet
-    let mut packets = Packet::make_packets(&vec![123; 59], Scope::Player { player_id: 0 }).unwrap();
+    let mut packets = Packet::make_packets(&[123; 59], Scope::Player { player_id: 0 }).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
         stream_id,
@@ -189,7 +189,7 @@ fn test_make_packets() {
     .unwrap();
     assert_eq!(
         packets.len(),
-        (1.0 + ((65535.0 - 59.0) / 63.0 as f32).ceil()) as usize
+        (1.0 + ((65535.0 - 59.0) / 63.0_f32).ceil()) as usize
     );
     if let Packet::Start(StartPacket {
         stream_id,

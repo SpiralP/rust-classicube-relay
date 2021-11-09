@@ -116,7 +116,7 @@ impl StartPacket {
         data_part.write_all(&buf[..n])?;
         data_part.resize(Self::DATA_PART_LENGTH, 0);
 
-        Ok(Self::new(stream_id, scope, data_length, data_part)?)
+        Self::new(stream_id, scope, data_length, data_part)
     }
 
     pub fn encode(&self) -> Result<Vec<u8>> {
@@ -182,7 +182,7 @@ impl ContinuePacket {
         data_part.write_all(&buf[..n])?;
         data_part.resize(Self::DATA_PART_LENGTH, 0);
 
-        Ok(Self::new(stream_id, data_part)?)
+        Self::new(stream_id, data_part)
     }
 
     pub fn encode(&self) -> Result<Vec<u8>> {
