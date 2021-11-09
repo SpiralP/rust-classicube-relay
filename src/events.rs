@@ -15,12 +15,12 @@ use tracing::{debug, error, warn};
 pub type CallbackFn = Box<dyn Fn(u8, &[u8])>;
 
 #[derive(Debug)]
-struct PacketStream {
+struct PartialStream {
     player_id: u8,
     data_length: u16,
     data_buffer: Vec<u8>,
 }
-impl PacketStream {
+impl PartialStream {
     pub fn is_finished(&self) -> bool {
         self.data_buffer.len() == self.data_length as usize
     }
@@ -38,7 +38,7 @@ impl PacketStream {
 #[derive(Default)]
 pub struct Store {
     event_handlers: Vec<CallbackFn>,
-    streams: HashMap<u8, PacketStream>,
+    streams: HashMap<u8, PartialStream>,
 }
 
 pub struct RelayListener {
@@ -106,7 +106,7 @@ impl RelayListener {
                 if let Scope::Player(PlayerScope { player_id }) = scope {
                     debug!(stream_id, player_id, data_length, "new stream");
 
-                    let mut stream = PacketStream {
+                    let mut stream = PartialStream {
                         player_id,
                         data_length,
                         data_buffer: Vec::with_capacity(data_length as usize),
@@ -164,8 +164,12 @@ impl RelayListener {
         Ok(())
     }
 
-    pub fn on(&mut self, callback: CallbackFn) {
+    pub fn on<F>(&mut self, callback: F)
+    where
+        F: Fn(u8, &[u8]),
+        F: 'static,
+    {
         let mut store = self.store.borrow_mut();
-        store.event_handlers.push(callback);
+        store.event_handlers.push(Box::new(callback));
     }
 }

@@ -22,9 +22,9 @@ fn test_events_invalid_continue() {
     let mut listener = RelayListener::new(200).unwrap();
     {
         let called = called.clone();
-        listener.on(Box::new(move |a, b| {
+        listener.on(move |a, b| {
             called.set(Some((a, b.to_vec())));
-        }));
+        });
     }
     {
         let mut data_part = vec![];
@@ -47,9 +47,9 @@ fn test_events_single_start_packet() {
     let mut listener = RelayListener::new(200).unwrap();
     {
         let called = called.clone();
-        listener.on(Box::new(move |a, b| {
+        listener.on(move |a, b| {
             called.set(Some((a, b.to_vec())));
-        }));
+        });
     }
 
     let mut data_part = vec![];
@@ -73,9 +73,9 @@ fn test_events_multiple_packets() {
     let mut listener = RelayListener::new(200).unwrap();
     {
         let called = called.clone();
-        listener.on(Box::new(move |a, b| {
+        listener.on(move |a, b| {
             called.set(Some((a, b.to_vec())));
-        }));
+        });
     }
 
     {
@@ -110,9 +110,9 @@ fn test_events_restart() {
     let mut listener = RelayListener::new(200).unwrap();
     {
         let called = called.clone();
-        listener.on(Box::new(move |a, b| {
+        listener.on(move |a, b| {
             called.set(Some((a, b.to_vec())));
-        }));
+        });
     }
 
     {
