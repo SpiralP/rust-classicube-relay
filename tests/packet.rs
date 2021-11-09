@@ -94,7 +94,7 @@ fn test_decode_continue_packet() {
 #[test]
 fn test_make_packets() {
     // test 0 length
-    let mut packets = Packet::make_packets(&[], Scope::Player { player_id: 0 }).unwrap();
+    let mut packets = Packet::make_packets(&[], PlayerScope::new(0)).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
         stream_id,
@@ -111,7 +111,7 @@ fn test_make_packets() {
     }
 
     // test 1 single start packet
-    let mut packets = Packet::make_packets(b"helloooo", Scope::Player { player_id: 0 }).unwrap();
+    let mut packets = Packet::make_packets(b"helloooo", PlayerScope::new(0)).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
         stream_id,
@@ -130,7 +130,7 @@ fn test_make_packets() {
     }
 
     // test multiple packets
-    let mut packets = Packet::make_packets(&[123; 64], Scope::Player { player_id: 0 }).unwrap();
+    let mut packets = Packet::make_packets(&[123; 64], PlayerScope::new(0)).unwrap();
     assert_eq!(packets.len(), 2);
     if let Packet::Start(StartPacket {
         stream_id,
@@ -159,7 +159,7 @@ fn test_make_packets() {
     }
 
     // test max size single packet
-    let mut packets = Packet::make_packets(&[123; 59], Scope::Player { player_id: 0 }).unwrap();
+    let mut packets = Packet::make_packets(&[123; 59], PlayerScope::new(0)).unwrap();
     assert_eq!(packets.len(), 1);
     if let Packet::Start(StartPacket {
         stream_id,
@@ -176,17 +176,10 @@ fn test_make_packets() {
     }
 
     // test max size
-    assert!(Packet::make_packets(
-        &vec![123; u16::MAX as usize + 1],
-        Scope::Player { player_id: 0 }
-    )
-    .is_err());
+    assert!(Packet::make_packets(&vec![123; u16::MAX as usize + 1], PlayerScope::new(0)).is_err());
 
-    let mut packets = Packet::make_packets(
-        &vec![123; u16::MAX as usize],
-        Scope::Player { player_id: 0 },
-    )
-    .unwrap();
+    let mut packets =
+        Packet::make_packets(&vec![123; u16::MAX as usize], PlayerScope::new(0)).unwrap();
     assert_eq!(
         packets.len(),
         (1.0 + ((65535.0 - 59.0) / 63.0_f32).ceil()) as usize
@@ -228,16 +221,16 @@ fn test_make_packets() {
 
     // test "no free outgoing ids"
     for _ in 0..128 - 5 {
-        Packet::make_packets(b"", Scope::Player { player_id: 0 }).unwrap();
+        Packet::make_packets(b"", PlayerScope::new(0)).unwrap();
     }
-    assert!(Packet::make_packets(b"", Scope::Player { player_id: 0 }).is_err());
+    assert!(Packet::make_packets(b"", PlayerScope::new(0)).is_err());
 }
 
 #[test]
 fn test_encode_decode() {
     let mut data_stream = Cursor::new(vec![]);
     let packet = Packet::Start(
-        StartPacket::new_reader(1, Scope::Player { player_id: 2 }, 3, &mut data_stream).unwrap(),
+        StartPacket::new_reader(1, PlayerScope::new(2), 3, &mut data_stream).unwrap(),
     );
     let packet_data = packet.encode().unwrap();
     let decoded_packet = Packet::decode(&mut Cursor::new(packet_data)).unwrap();

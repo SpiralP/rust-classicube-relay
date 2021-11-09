@@ -51,10 +51,9 @@ fn test_events_single_start_packet() {
 
     let mut data_part = vec![];
     data_part.resize(StartPacket::DATA_PART_LENGTH, 0);
-    let mut data =
-        Packet::Start(StartPacket::new(1, Scope::Player { player_id: 2 }, 2, data_part).unwrap())
-            .encode()
-            .unwrap();
+    let mut data = Packet::Start(StartPacket::new(1, PlayerScope::new(2), 2, data_part).unwrap())
+        .encode()
+        .unwrap();
     plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
 
     let args = called.take().unwrap();
@@ -78,11 +77,10 @@ fn test_events_multiple_packets() {
     {
         let mut data_part = vec![];
         data_part.resize(StartPacket::DATA_PART_LENGTH, 0);
-        let mut data = Packet::Start(
-            StartPacket::new(1, Scope::Player { player_id: 2 }, 64, data_part).unwrap(),
-        )
-        .encode()
-        .unwrap();
+        let mut data =
+            Packet::Start(StartPacket::new(1, PlayerScope::new(2), 64, data_part).unwrap())
+                .encode()
+                .unwrap();
         plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
     {
@@ -115,21 +113,19 @@ fn test_events_restart() {
     {
         let mut data_part = vec![];
         data_part.resize(StartPacket::DATA_PART_LENGTH, 0);
-        let mut data = Packet::Start(
-            StartPacket::new(1, Scope::Player { player_id: 2 }, 64, data_part).unwrap(),
-        )
-        .encode()
-        .unwrap();
+        let mut data =
+            Packet::Start(StartPacket::new(1, PlayerScope::new(2), 64, data_part).unwrap())
+                .encode()
+                .unwrap();
         plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
     {
         let mut data_part = vec![];
         data_part.resize(StartPacket::DATA_PART_LENGTH, 0);
-        let mut data = Packet::Start(
-            StartPacket::new(1, Scope::Player { player_id: 2 }, 10, data_part).unwrap(),
-        )
-        .encode()
-        .unwrap();
+        let mut data =
+            Packet::Start(StartPacket::new(1, PlayerScope::new(2), 10, data_part).unwrap())
+                .encode()
+                .unwrap();
         plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
 

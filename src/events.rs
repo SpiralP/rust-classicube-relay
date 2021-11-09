@@ -1,6 +1,6 @@
 use crate::{
     error::*,
-    packet::{ContinuePacket, Packet, Scope, StartPacket},
+    packet::{ContinuePacket, Packet, PlayerScope, Scope, StartPacket},
     RELAY_CHANNEL_START_INDEX,
 };
 use classicube_helpers::events::plugin_messages;
@@ -103,7 +103,7 @@ impl RelayListener {
                 data_length,
                 data_part,
             }) => {
-                if let Scope::Player { player_id } = scope {
+                if let Scope::Player(PlayerScope { player_id }) = scope {
                     debug!(stream_id, player_id, data_length, "new stream");
 
                     let mut stream = PacketStream {

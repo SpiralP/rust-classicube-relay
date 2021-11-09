@@ -32,7 +32,7 @@ pub enum Packet {
     Continue(ContinuePacket),
 }
 impl Packet {
-    pub fn make_packets(data: &[u8], scope: Scope) -> Result<Vec<Self>> {
+    pub fn make_packets<S: Into<Scope>>(data: &[u8], scope: S) -> Result<Vec<Self>> {
         ensure!(data.len() <= u16::MAX as usize, "data.len() > u16::MAX");
         let stream_id = new_outgoing_packet_id()?;
 
@@ -88,7 +88,12 @@ pub struct StartPacket {
 impl StartPacket {
     pub const DATA_PART_LENGTH: usize = 64 - 2 * 2 - 1;
 
-    pub fn new(stream_id: u8, scope: Scope, data_length: u16, data_part: Vec<u8>) -> Result<Self> {
+    pub fn new<S: Into<Scope>>(
+        stream_id: u8,
+        scope: S,
+        data_length: u16,
+        data_part: Vec<u8>,
+    ) -> Result<Self> {
         ensure!(
             data_part.len() == Self::DATA_PART_LENGTH,
             "wrong data_part len"
@@ -96,15 +101,15 @@ impl StartPacket {
 
         Ok(Self {
             stream_id,
-            scope,
+            scope: scope.into(),
             data_length,
             data_part,
         })
     }
 
-    pub fn new_reader(
+    pub fn new_reader<S: Into<Scope>>(
         stream_id: u8,
-        scope: Scope,
+        scope: S,
         data_length: u16,
         data_stream: &mut impl Read,
     ) -> Result<Self> {
@@ -217,7 +222,7 @@ impl ContinuePacket {
 // stream_id: mask 0111_1111
 #[derive(Debug, PartialEq, Eq)]
 pub struct Flags {
-    // is a start packet, or is a continuation
+    /// is a start packet, or is a continuation
     pub is_packet_start: bool,
 
     // TODO what am i
@@ -252,26 +257,14 @@ impl Flags {
 // byte 1: scope_extra: u8,
 #[derive(Debug, PartialEq, Eq)]
 pub enum Scope {
-    // a single player
-    Player {
-        // target player id if from client
-        // sender player id if from server
-        player_id: u8,
-    },
+    /// a single player
+    Player(PlayerScope),
 
-    // all players in my map
-    Map {
-        // mask 1000_0000
-        // only send to those that have the same plugin that uses the same channel
-        // this was sent from
-        have_plugin: bool,
-    },
+    /// all players in my map
+    Map(MapScope),
 
     // all players in my server
-    Server {
-        // mask 1000_0000
-        have_plugin: bool,
-    },
+    Server(ServerScope),
 }
 impl Scope {
     pub fn kind(&self) -> u8 {
@@ -288,14 +281,14 @@ impl Scope {
         data.write_u8(self.kind())?;
 
         match self {
-            Scope::Player { player_id } => {
+            Scope::Player(PlayerScope { player_id }) => {
                 data.write_u8(*player_id)?;
             }
 
-            Scope::Map { have_plugin } => {
+            Scope::Map(MapScope { have_plugin }) => {
                 data.write_u8(if *have_plugin { 0b1000_0000 } else { 0 })?;
             }
-            Scope::Server { have_plugin } => {
+            Scope::Server(ServerScope { have_plugin }) => {
                 data.write_u8(if *have_plugin { 0b1000_0000 } else { 0 })?;
             }
         }
@@ -308,16 +301,16 @@ impl Scope {
         let extra = data_stream.read_u8()?;
 
         let scope = match kind {
-            0 => Scope::Player { player_id: extra },
+            0 => Scope::Player(PlayerScope { player_id: extra }),
 
             1 => {
                 let have_plugin = (extra & 0b1000_0000) != 0;
-                Scope::Map { have_plugin }
+                Scope::Map(MapScope { have_plugin })
             }
 
             2 => {
                 let have_plugin = (extra & 0b1000_0000) != 0;
-                Scope::Server { have_plugin }
+                Scope::Server(ServerScope { have_plugin })
             }
 
             _ => {
@@ -327,4 +320,51 @@ impl Scope {
 
         Ok(scope)
     }
+}
+impl From<PlayerScope> for Scope {
+    fn from(scope: PlayerScope) -> Self {
+        Self::Player(scope)
+    }
+}
+impl From<MapScope> for Scope {
+    fn from(scope: MapScope) -> Self {
+        Self::Map(scope)
+    }
+}
+impl From<ServerScope> for Scope {
+    fn from(scope: ServerScope) -> Self {
+        Self::Server(scope)
+    }
+}
+
+/// a single player
+#[derive(Debug, PartialEq, Eq)]
+pub struct PlayerScope {
+    /// target player id if from client
+    ///
+    /// sender player id if from server
+    pub player_id: u8,
+}
+impl PlayerScope {
+    pub fn new(player_id: u8) -> Self {
+        Self { player_id }
+    }
+}
+
+/// all players in my map
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct MapScope {
+    // mask 1000_0000
+    /// only send to those that have the same plugin that uses the same channel
+    /// this was sent from
+    have_plugin: bool,
+}
+
+// all players in my server
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct ServerScope {
+    // mask 1000_0000
+    /// only send to those that have the same plugin that uses the same channel
+    /// this was sent from
+    have_plugin: bool,
 }
