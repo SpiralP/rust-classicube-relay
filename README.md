@@ -19,14 +19,14 @@ listener.on(Box::new(move |player_id: u8, data: &[u8]| {
 Send data to another player by id:
 
 ```rust
-use classicube_relay::{packet::PlayerScope, Packet};
+use classicube_relay::{packet::PlayerScope, Stream};
 
 let channel = 200;
-let mut packets = Packet::make_packets(
-    b"hello!",
+let mut stream = Stream::new(
+    b"hello!".to_vec(),
     PlayerScope::new(123)
 ).unwrap();
-for packet in packets {
+for packet in stream.packets().unwrap() {
     let mut data = packet.encode().unwrap();
     unsafe {
         classicube_sys::CPE_SendPluginMessage(channel, data.as_mut_ptr());
@@ -37,14 +37,14 @@ for packet in packets {
 Send data to all players in my same map:
 
 ```rust
-use classicube_relay::{packet::PlayerScope, Packet};
+use classicube_relay::{packet::MapScope, Stream};
 
 let channel = 200;
-let mut packets = Packet::make_packets(
-    b"hello!",
+let mut stream = Stream::new(
+    b"hello!".to_vec(),
     MapScope::default()
 ).unwrap();
-for packet in packets {
+for packet in stream.packets().unwrap() {
     let mut data = packet.encode().unwrap();
     unsafe {
         classicube_sys::CPE_SendPluginMessage(channel, data.as_mut_ptr());

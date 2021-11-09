@@ -1,29 +1,6 @@
 use crate::error::*;
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
-use lazy_static::lazy_static;
-use std::{
-    collections::HashSet,
-    io::{Cursor, Read, Write},
-    sync::Mutex,
-};
-
-pub const PLUGIN_MESSAGE_DATA_LENGTH: usize = 64;
-
-lazy_static! {
-    static ref OUTGOING_PACKET_ID: Mutex<HashSet<u8>> = Default::default();
-}
-
-fn new_outgoing_packet_id() -> Result<u8> {
-    let mut guard = OUTGOING_PACKET_ID.lock().unwrap();
-
-    let maybe_id = (0..2u8.pow(7)).find(|id| !guard.contains(id));
-    if let Some(id) = maybe_id {
-        guard.insert(id);
-        Ok(id)
-    } else {
-        bail!("can't find free outgoing packet id");
-    }
-}
+use std::io::{Read, Write};
 
 // [u8; 64]
 #[derive(Debug, PartialEq, Eq)]
@@ -32,29 +9,7 @@ pub enum Packet {
     Continue(ContinuePacket),
 }
 impl Packet {
-    pub fn make_packets<S: Into<Scope>>(data: &[u8], scope: S) -> Result<Vec<Self>> {
-        ensure!(data.len() <= u16::MAX as usize, "data.len() > u16::MAX");
-        let stream_id = new_outgoing_packet_id()?;
-
-        let mut packets = vec![];
-
-        let mut cursor = Cursor::new(data);
-        packets.push(Packet::Start(StartPacket::new_reader(
-            stream_id,
-            scope,
-            data.len() as u16,
-            &mut cursor,
-        )?));
-
-        while cursor.position() < data.len() as u64 {
-            packets.push(Packet::Continue(ContinuePacket::new_reader(
-                stream_id,
-                &mut cursor,
-            )?));
-        }
-
-        Ok(packets)
-    }
+    pub const DATA_LENGTH: usize = 64;
 
     pub fn encode(&self) -> Result<Vec<u8>> {
         match self {
@@ -113,7 +68,7 @@ impl StartPacket {
         data_length: u16,
         data_stream: &mut impl Read,
     ) -> Result<Self> {
-        let mut data_part = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
+        let mut data_part = Vec::with_capacity(Packet::DATA_LENGTH);
 
         let mut buf = [0; Self::DATA_PART_LENGTH];
         let n = data_stream.read(&mut buf)?;
@@ -125,7 +80,7 @@ impl StartPacket {
     }
 
     pub fn encode(&self) -> Result<Vec<u8>> {
-        let mut data = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
+        let mut data = Vec::with_capacity(Packet::DATA_LENGTH);
 
         data.write_all(
             &Flags {
@@ -179,7 +134,7 @@ impl ContinuePacket {
     }
 
     pub fn new_reader(stream_id: u8, data_stream: &mut impl Read) -> Result<Self> {
-        let mut data_part = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
+        let mut data_part = Vec::with_capacity(Packet::DATA_LENGTH);
 
         let mut buf = [0; Self::DATA_PART_LENGTH];
         let n = data_stream.read(&mut buf)?;
@@ -191,7 +146,7 @@ impl ContinuePacket {
     }
 
     pub fn encode(&self) -> Result<Vec<u8>> {
-        let mut data = Vec::with_capacity(PLUGIN_MESSAGE_DATA_LENGTH);
+        let mut data = Vec::with_capacity(Packet::DATA_LENGTH);
 
         data.write_all(
             &Flags {
@@ -255,7 +210,7 @@ impl Flags {
 // u16
 // byte 0: scope_id: u8,
 // byte 1: scope_extra: u8,
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Scope {
     /// a single player
     Player(PlayerScope),
@@ -338,7 +293,7 @@ impl From<ServerScope> for Scope {
 }
 
 /// a single player
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerScope {
     /// target player id if from client
     ///
@@ -352,7 +307,7 @@ impl PlayerScope {
 }
 
 /// all players in my map
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct MapScope {
     // mask 1000_0000
     /// only send to those that have the same plugin that uses the same channel
@@ -361,7 +316,7 @@ pub struct MapScope {
 }
 
 // all players in my server
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ServerScope {
     // mask 1000_0000
     /// only send to those that have the same plugin that uses the same channel
