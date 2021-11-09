@@ -6,7 +6,7 @@ Library for sending and receiving relay messages from the [MCGalaxy-Relay-Plugin
 
 Receive data from other players:
 
-```rust
+```rust no_run
 use classicube_relay::RelayListener;
 
 let channel = 200;
@@ -18,7 +18,7 @@ listener.on(Box::new(move |player_id: u8, data: &[u8]| {
 
 Send data to another player by id:
 
-```rust
+```rust no_run
 use classicube_relay::{packet::PlayerScope, Stream};
 
 let channel = 200;
@@ -36,7 +36,7 @@ for packet in stream.packets().unwrap() {
 
 Send data to all players in my same map:
 
-```rust
+```rust no_run
 use classicube_relay::{packet::MapScope, Stream};
 
 let channel = 200;
