@@ -1,1 +1,1 @@
-window.ALL_CRATES = ["addr2line","adler","backtrace","byteorder","cfg_if","classicube_relay","error_chain","gimli","lazy_static","libc","memchr","miniz_oxide","object","rustc_demangle"];
+window.ALL_CRATES = ["addr2line","adler","backtrace","byteorder","cfg_if","classicube_helpers","classicube_relay","classicube_sys","error_chain","gimli","lazy_static","libc","miniz_oxide","object","paste","pin_project_lite","proc_macro2","quote","rustc_demangle","syn","tracing","tracing_attributes","tracing_core","unicode_xid"];

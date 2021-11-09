@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["error",""],["packet",""]]});
+initSidebarItems({"constant":[["RELAY_CHANNEL_START_INDEX",""]],"mod":[["error",""],["events",""],["packet",""]]});
