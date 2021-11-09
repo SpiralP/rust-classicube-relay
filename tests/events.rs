@@ -5,6 +5,7 @@ use std::{cell::Cell, rc::Rc};
 #[path = "logger.rs"]
 mod logger;
 
+#[cfg(windows)]
 #[test]
 fn test_events_invalid_channel() {
     self::logger::initialize(true, false);
@@ -12,6 +13,7 @@ fn test_events_invalid_channel() {
     assert!(RelayListener::new(20).is_err());
 }
 
+#[cfg(windows)]
 #[test]
 fn test_events_invalid_continue() {
     self::logger::initialize(true, false);
@@ -36,6 +38,7 @@ fn test_events_invalid_continue() {
     assert!(called.take().is_none());
 }
 
+#[cfg(windows)]
 #[test]
 fn test_events_single_start_packet() {
     self::logger::initialize(true, false);
@@ -61,6 +64,7 @@ fn test_events_single_start_packet() {
     assert_eq!(args.1, vec![0; 2]);
 }
 
+#[cfg(windows)]
 #[test]
 fn test_events_multiple_packets() {
     self::logger::initialize(true, false);
@@ -97,6 +101,7 @@ fn test_events_multiple_packets() {
     assert_eq!(args.1, vec![0; 64]);
 }
 
+#[cfg(windows)]
 #[test]
 fn test_events_restart() {
     self::logger::initialize(true, true);
