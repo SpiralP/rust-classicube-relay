@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["PLUGIN_MESSAGE_DATA_LENGTH",""]],"enum":[["Packet",""],["Scope",""]],"struct":[["ContinuePacket",""],["Flags",""],["StartPacket",""]]});
+initSidebarItems({"enum":[["Packet",""],["Scope",""]],"struct":[["ContinuePacket",""],["Flags",""],["MapScope","all players in my map"],["PlayerScope","a single player"],["ServerScope",""],["StartPacket",""]]});

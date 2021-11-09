@@ -171,7 +171,7 @@
 <span id="171">171</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">error</span>::<span class="kw-2">*</span>,
-    <span class="ident">packet</span>::{<span class="ident">ContinuePacket</span>, <span class="ident">Packet</span>, <span class="ident">Scope</span>, <span class="ident">StartPacket</span>},
+    <span class="ident">packet</span>::{<span class="ident">ContinuePacket</span>, <span class="ident">Packet</span>, <span class="ident">PlayerScope</span>, <span class="ident">Scope</span>, <span class="ident">StartPacket</span>},
     <span class="ident">RELAY_CHANNEL_START_INDEX</span>,
 };
 <span class="kw">use</span> <span class="ident">classicube_helpers::events::plugin_messages</span>;
@@ -274,7 +274,7 @@
                 <span class="ident">data_length</span>,
                 <span class="ident">data_part</span>,
             }) =&gt; {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Scope::Player</span> { <span class="ident">player_id</span> } <span class="op">=</span> <span class="ident">scope</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Scope::Player</span>(<span class="ident">PlayerScope</span> { <span class="ident">player_id</span> }) <span class="op">=</span> <span class="ident">scope</span> {
                     <span class="macro">debug!</span>(<span class="ident">stream_id</span>, <span class="ident">player_id</span>, <span class="ident">data_length</span>, <span class="string">&quot;new stream&quot;</span>);
 
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream</span> <span class="op">=</span> <span class="ident">PacketStream</span> {
