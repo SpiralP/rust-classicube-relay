@@ -3,12 +3,13 @@ use crate::{
     packet::{ContinuePacket, Packet, PlayerScope, Scope, StartPacket},
     RELAY_CHANNEL_START_INDEX,
 };
-use classicube_helpers::events::plugin_messages;
+use classicube_helpers::{events::plugin_messages, tick};
 use std::{
     cell::RefCell,
     collections::HashMap,
     io::{Cursor, Write},
     rc::Rc,
+    time::{Duration, Instant},
 };
 use tracing::{debug, error, warn};
 
@@ -20,6 +21,7 @@ struct PartialStream {
     data_length: u16,
     data_buffer: Vec<u8>,
 }
+
 impl PartialStream {
     pub fn is_finished(&self) -> bool {
         self.data_buffer.len() == self.data_length as usize
@@ -35,16 +37,11 @@ impl PartialStream {
     }
 }
 
-#[derive(Default)]
-pub struct Store {
-    event_handlers: Vec<CallbackFn>,
-    streams: HashMap<u8, PartialStream>,
-}
-
 pub struct RelayListener {
     pub channel: u8,
     store: Rc<RefCell<Store>>,
     _plugin_message_handler: plugin_messages::ReceivedEventHandler,
+    _tick_handler: tick::TickEventHandler,
 }
 
 impl RelayListener {
@@ -65,9 +62,11 @@ impl RelayListener {
                 }
 
                 if let Some(store) = store.upgrade() {
+                    let mut store = store.borrow_mut();
+                    let store = &mut *store;
                     match Packet::decode(&mut Cursor::new(&event.data)) {
                         Ok(packet) => {
-                            if let Err(e) = Self::process_packet(packet, store) {
+                            if let Err(e) = store.process_packet(packet) {
                                 error!("processing packet: {:#?}", e);
                             }
                         }
@@ -79,22 +78,48 @@ impl RelayListener {
                 }
             });
         }
+        let mut tick_handler = tick::TickEventHandler::new();
+        {
+            let store = Rc::downgrade(&store);
+            tick_handler.on(move |_event| {
+                if let Some(store) = store.upgrade() {
+                    let mut store = store.borrow_mut();
+                    let store = &mut *store;
+                    store.tick();
+                }
+            });
+        }
 
         Ok(Self {
             channel,
             store,
             _plugin_message_handler: plugin_message_handler,
+            _tick_handler: tick_handler,
         })
     }
 
-    fn process_packet(packet: Packet, store: Rc<RefCell<Store>>) -> Result<()> {
-        debug!("process_packet {:?}", packet);
+    pub fn on<F>(&mut self, callback: F)
+    where
+        F: Fn(u8, &[u8]),
+        F: 'static,
+    {
+        let mut store = self.store.borrow_mut();
+        store.event_handlers.push(Box::new(callback));
+    }
+}
 
-        let mut guard = store.borrow_mut();
-        let Store {
-            streams,
-            event_handlers,
-        } = &mut *guard;
+#[derive(Default)]
+pub struct Store {
+    event_handlers: Vec<CallbackFn>,
+    streams: HashMap<u8, PartialStream>,
+    cleanup_times: HashMap<u8, Instant>,
+}
+
+impl Store {
+    const STREAM_TIMEOUT: Duration = Duration::from_secs(10);
+
+    fn process_packet(&mut self, packet: Packet) -> Result<()> {
+        debug!("process_packet {:?}", packet);
 
         let finished_stream = match packet {
             Packet::Start(StartPacket {
@@ -113,13 +138,15 @@ impl RelayListener {
                     };
                     stream.write_part(data_part)?;
 
-                    if let Some(old_stream) = streams.remove(&stream_id) {
+                    if let Some(old_stream) = self.streams.remove(&stream_id) {
                         warn!("restarting stream {:?}", old_stream);
                     }
                     if stream.is_finished() {
                         Some(stream)
                     } else {
-                        streams.insert(stream_id, stream);
+                        self.streams.insert(stream_id, stream);
+                        self.cleanup_times
+                            .insert(stream_id, Instant::now() + Self::STREAM_TIMEOUT);
                         None
                     }
                 } else {
@@ -131,7 +158,7 @@ impl RelayListener {
                 stream_id,
                 data_part,
             }) => {
-                let is_finished = if let Some(stream) = streams.get_mut(&stream_id) {
+                let is_finished = if let Some(stream) = self.streams.get_mut(&stream_id) {
                     stream.write_part(data_part)?;
                     debug!(
                         stream_id,
@@ -147,7 +174,7 @@ impl RelayListener {
                 };
 
                 if is_finished {
-                    Some(streams.remove(&stream_id).unwrap())
+                    Some(self.streams.remove(&stream_id).unwrap())
                 } else {
                     None
                 }
@@ -156,7 +183,7 @@ impl RelayListener {
 
         if let Some(stream) = finished_stream {
             debug!("finished_stream");
-            for f in event_handlers {
+            for f in &self.event_handlers {
                 f(stream.player_id, &stream.data_buffer);
             }
         }
@@ -164,12 +191,24 @@ impl RelayListener {
         Ok(())
     }
 
-    pub fn on<F>(&mut self, callback: F)
-    where
-        F: Fn(u8, &[u8]),
-        F: 'static,
-    {
-        let mut store = self.store.borrow_mut();
-        store.event_handlers.push(Box::new(callback));
+    fn tick(&mut self) {
+        let now = Instant::now();
+        let mut stream_ids_to_removes = self
+            .cleanup_times
+            .iter()
+            .filter_map(|(stream_id, cleanup_time)| {
+                if &now > cleanup_time {
+                    Some(*stream_id)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for stream_id in stream_ids_to_removes.drain(..) {
+            debug!(stream_id, "timed out, removing");
+            self.cleanup_times.remove(&stream_id);
+            self.streams.remove(&stream_id);
+        }
     }
 }
