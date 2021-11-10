@@ -312,7 +312,7 @@ pub struct MapScope {
     // mask 1000_0000
     /// only send to those that have the same plugin that uses the same channel
     /// this was sent from
-    have_plugin: bool,
+    pub have_plugin: bool,
 }
 
 // all players in my server
@@ -321,5 +321,5 @@ pub struct ServerScope {
     // mask 1000_0000
     /// only send to those that have the same plugin that uses the same channel
     /// this was sent from
-    have_plugin: bool,
+    pub have_plugin: bool,
 }
