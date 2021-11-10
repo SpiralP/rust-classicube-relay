@@ -173,17 +173,57 @@
 <span id="173">173</span>
 <span id="174">174</span>
 <span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
 </pre><pre class="rust"><code><span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">error</span>::<span class="kw-2">*</span>,
     <span class="ident">packet</span>::{<span class="ident">ContinuePacket</span>, <span class="ident">Packet</span>, <span class="ident">PlayerScope</span>, <span class="ident">Scope</span>, <span class="ident">StartPacket</span>},
     <span class="ident">RELAY_CHANNEL_START_INDEX</span>,
 };
-<span class="kw">use</span> <span class="ident">classicube_helpers::events::plugin_messages</span>;
+<span class="kw">use</span> <span class="ident">classicube_helpers</span>::{<span class="ident">events::plugin_messages</span>, <span class="ident">tick</span>};
 <span class="kw">use</span> <span class="ident">std</span>::{
     <span class="ident">cell::RefCell</span>,
     <span class="ident">collections::HashMap</span>,
     <span class="ident">io</span>::{<span class="ident">Cursor</span>, <span class="ident">Write</span>},
     <span class="ident">rc::Rc</span>,
+    <span class="ident">time</span>::{<span class="ident">Duration</span>, <span class="ident">Instant</span>},
 };
 <span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">error</span>, <span class="ident">warn</span>};
 
@@ -195,6 +235,7 @@
     <span class="ident">data_length</span>: <span class="ident">u16</span>,
     <span class="ident">data_buffer</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>,
 }
+
 <span class="kw">impl</span> <span class="ident">PartialStream</span> {
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_finished</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">data_buffer</span>.<span class="ident">len</span>() <span class="op">==</span> <span class="self">self</span>.<span class="ident">data_length</span> <span class="kw">as</span> <span class="ident">usize</span>
@@ -210,16 +251,11 @@
     }
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Store</span> {
-    <span class="ident">event_handlers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CallbackFn</span><span class="op">&gt;</span>,
-    <span class="ident">streams</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">PartialStream</span><span class="op">&gt;</span>,
-}
-
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">RelayListener</span> {
     <span class="kw">pub</span> <span class="ident">channel</span>: <span class="ident">u8</span>,
     <span class="ident">store</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">_plugin_message_handler</span>: <span class="ident">plugin_messages::ReceivedEventHandler</span>,
+    <span class="ident">_tick_handler</span>: <span class="ident">tick::TickEventHandler</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">RelayListener</span> {
@@ -240,9 +276,11 @@
                 }
 
                 <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">store</span>) <span class="op">=</span> <span class="ident">store</span>.<span class="ident">upgrade</span>() {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">borrow_mut</span>();
+                    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">store</span>;
                     <span class="kw">match</span> <span class="ident">Packet::decode</span>(<span class="kw-2">&amp;mut</span> <span class="ident">Cursor::new</span>(<span class="kw-2">&amp;</span><span class="ident">event</span>.<span class="ident">data</span>)) {
                         <span class="prelude-val">Ok</span>(<span class="ident">packet</span>) =&gt; {
-                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident"><span class="self">Self</span>::process_packet</span>(<span class="ident">packet</span>, <span class="ident">store</span>) {
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span> <span class="ident">store</span>.<span class="ident">process_packet</span>(<span class="ident">packet</span>) {
                                 <span class="macro">error!</span>(<span class="string">&quot;processing packet: {:#?}&quot;</span>, <span class="ident">e</span>);
                             }
                         }
@@ -254,22 +292,48 @@
                 }
             });
         }
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tick_handler</span> <span class="op">=</span> <span class="ident">tick::TickEventHandler::new</span>();
+        {
+            <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Rc::downgrade</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>);
+            <span class="ident">tick_handler</span>.<span class="ident">on</span>(<span class="kw">move</span> <span class="op">|</span><span class="ident">_event</span><span class="op">|</span> {
+                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">store</span>) <span class="op">=</span> <span class="ident">store</span>.<span class="ident">upgrade</span>() {
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">borrow_mut</span>();
+                    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">store</span>;
+                    <span class="ident">store</span>.<span class="ident">tick</span>();
+                }
+            });
+        }
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">channel</span>,
             <span class="ident">store</span>,
             <span class="ident">_plugin_message_handler</span>: <span class="ident">plugin_message_handler</span>,
+            <span class="ident">_tick_handler</span>: <span class="ident">tick_handler</span>,
         })
     }
 
-    <span class="kw">fn</span> <span class="ident">process_packet</span>(<span class="ident">packet</span>: <span class="ident">Packet</span>, <span class="ident">store</span>: <span class="ident">Rc</span><span class="op">&lt;</span><span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span><span class="op">&gt;</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="macro">debug!</span>(<span class="string">&quot;process_packet {:?}&quot;</span>, <span class="ident">packet</span>);
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">on</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">callback</span>: <span class="ident">F</span>)
+    <span class="kw">where</span>
+        <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="ident">u8</span>, <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]),
+        <span class="ident">F</span>: <span class="lifetime">&#39;static</span>,
+    {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">borrow_mut</span>();
+        <span class="ident">store</span>.<span class="ident">event_handlers</span>.<span class="ident">push</span>(<span class="ident">Box::new</span>(<span class="ident">callback</span>));
+    }
+}
 
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">guard</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">borrow_mut</span>();
-        <span class="kw">let</span> <span class="ident">Store</span> {
-            <span class="ident">streams</span>,
-            <span class="ident">event_handlers</span>,
-        } <span class="op">=</span> <span class="kw-2">&amp;mut</span> <span class="kw-2">*</span><span class="ident">guard</span>;
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Default</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Store</span> {
+    <span class="ident">event_handlers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">CallbackFn</span><span class="op">&gt;</span>,
+    <span class="ident">streams</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">PartialStream</span><span class="op">&gt;</span>,
+    <span class="ident">cleanup_times</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Instant</span><span class="op">&gt;</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">Store</span> {
+    <span class="kw">const</span> <span class="ident">STREAM_TIMEOUT</span>: <span class="ident">Duration</span> <span class="op">=</span> <span class="ident">Duration::from_secs</span>(<span class="number">10</span>);
+
+    <span class="kw">fn</span> <span class="ident">process_packet</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">packet</span>: <span class="ident">Packet</span>) -&gt; <span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="macro">debug!</span>(<span class="string">&quot;process_packet {:?}&quot;</span>, <span class="ident">packet</span>);
 
         <span class="kw">let</span> <span class="ident">finished_stream</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">packet</span> {
             <span class="ident">Packet::Start</span>(<span class="ident">StartPacket</span> {
@@ -288,13 +352,15 @@
                     };
                     <span class="ident">stream</span>.<span class="ident">write_part</span>(<span class="ident">data_part</span>)<span class="question-mark">?</span>;
 
-                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_stream</span>) <span class="op">=</span> <span class="ident">streams</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>) {
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">old_stream</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">streams</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>) {
                         <span class="macro">warn!</span>(<span class="string">&quot;restarting stream {:?}&quot;</span>, <span class="ident">old_stream</span>);
                     }
                     <span class="kw">if</span> <span class="ident">stream</span>.<span class="ident">is_finished</span>() {
                         <span class="prelude-val">Some</span>(<span class="ident">stream</span>)
                     } <span class="kw">else</span> {
-                        <span class="ident">streams</span>.<span class="ident">insert</span>(<span class="ident">stream_id</span>, <span class="ident">stream</span>);
+                        <span class="self">self</span>.<span class="ident">streams</span>.<span class="ident">insert</span>(<span class="ident">stream_id</span>, <span class="ident">stream</span>);
+                        <span class="self">self</span>.<span class="ident">cleanup_times</span>
+                            .<span class="ident">insert</span>(<span class="ident">stream_id</span>, <span class="ident">Instant::now</span>() <span class="op">+</span> <span class="ident"><span class="self">Self</span>::STREAM_TIMEOUT</span>);
                         <span class="prelude-val">None</span>
                     }
                 } <span class="kw">else</span> {
@@ -306,7 +372,7 @@
                 <span class="ident">stream_id</span>,
                 <span class="ident">data_part</span>,
             }) =&gt; {
-                <span class="kw">let</span> <span class="ident">is_finished</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stream</span>) <span class="op">=</span> <span class="ident">streams</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>) {
+                <span class="kw">let</span> <span class="ident">is_finished</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stream</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">streams</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>) {
                     <span class="ident">stream</span>.<span class="ident">write_part</span>(<span class="ident">data_part</span>)<span class="question-mark">?</span>;
                     <span class="macro">debug!</span>(
                         <span class="ident">stream_id</span>,
@@ -322,7 +388,7 @@
                 };
 
                 <span class="kw">if</span> <span class="ident">is_finished</span> {
-                    <span class="prelude-val">Some</span>(<span class="ident">streams</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>).<span class="ident">unwrap</span>())
+                    <span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">streams</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>).<span class="ident">unwrap</span>())
                 } <span class="kw">else</span> {
                     <span class="prelude-val">None</span>
                 }
@@ -331,7 +397,7 @@
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">stream</span>) <span class="op">=</span> <span class="ident">finished_stream</span> {
             <span class="macro">debug!</span>(<span class="string">&quot;finished_stream&quot;</span>);
-            <span class="kw">for</span> <span class="ident">f</span> <span class="kw">in</span> <span class="ident">event_handlers</span> {
+            <span class="kw">for</span> <span class="ident">f</span> <span class="kw">in</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">event_handlers</span> {
                 <span class="ident">f</span>(<span class="ident">stream</span>.<span class="ident">player_id</span>, <span class="kw-2">&amp;</span><span class="ident">stream</span>.<span class="ident">data_buffer</span>);
             }
         }
@@ -339,13 +405,25 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">on</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>, <span class="ident">callback</span>: <span class="ident">F</span>)
-    <span class="kw">where</span>
-        <span class="ident">F</span>: <span class="ident">Fn</span>(<span class="ident">u8</span>, <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]),
-        <span class="ident">F</span>: <span class="lifetime">&#39;static</span>,
-    {
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">store</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">borrow_mut</span>();
-        <span class="ident">store</span>.<span class="ident">event_handlers</span>.<span class="ident">push</span>(<span class="ident">Box::new</span>(<span class="ident">callback</span>));
+    <span class="kw">fn</span> <span class="ident">tick</span>(<span class="kw-2">&amp;mut</span> <span class="self">self</span>) {
+        <span class="kw">let</span> <span class="ident">now</span> <span class="op">=</span> <span class="ident">Instant::now</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">stream_ids_to_removes</span> <span class="op">=</span> <span class="self">self</span>
+            .<span class="ident">cleanup_times</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">filter_map</span>(<span class="op">|</span>(<span class="ident">stream_id</span>, <span class="ident">cleanup_time</span>)<span class="op">|</span> {
+                <span class="kw">if</span> <span class="kw-2">&amp;</span><span class="ident">now</span> <span class="op">&gt;</span> <span class="ident">cleanup_time</span> {
+                    <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="ident">stream_id</span>)
+                } <span class="kw">else</span> {
+                    <span class="prelude-val">None</span>
+                }
+            })
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+
+        <span class="kw">for</span> <span class="ident">stream_id</span> <span class="kw">in</span> <span class="ident">stream_ids_to_removes</span>.<span class="ident">drain</span>(..) {
+            <span class="macro">debug!</span>(<span class="ident">stream_id</span>, <span class="string">&quot;timed out, removing&quot;</span>);
+            <span class="self">self</span>.<span class="ident">cleanup_times</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>);
+            <span class="self">self</span>.<span class="ident">streams</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">stream_id</span>);
+        }
     }
 }
 </code></pre></div>
