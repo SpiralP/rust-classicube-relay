@@ -174,6 +174,7 @@ impl Store {
                 };
 
                 if is_finished {
+                    self.cleanup_times.remove(&stream_id);
                     Some(self.streams.remove(&stream_id).unwrap())
                 } else {
                     None
