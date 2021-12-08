@@ -1,116 +1,30 @@
-use crate::{
-    error::*,
-    packet::{ContinuePacket, Packet, PlayerScope, Scope, StartPacket},
-    RELAY_CHANNEL_START_INDEX,
-};
-use classicube_helpers::{events::plugin_messages, tick};
+use super::{CallbackFn, PartialStream, PartialStreamError};
+use crate::packet::{ContinuePacket, Packet, PlayerScope, Scope, StartPacket};
 use std::{
-    cell::RefCell,
     collections::HashMap,
-    io::{Cursor, Write},
-    rc::Rc,
     time::{Duration, Instant},
 };
 use tracing::{debug, error, warn};
 
-pub type CallbackFn = Box<dyn Fn(u8, &[u8])>;
+#[derive(Debug, thiserror::Error)]
+pub enum StoreError {
+    #[error("got non-Player scope")]
+    Thing,
 
-#[derive(Debug)]
-struct PartialStream {
-    player_id: u8,
-    data_length: u16,
-    data_buffer: Vec<u8>,
+    #[error("found continue packet before start")]
+    Thing2,
+
+    #[error(transparent)]
+    PartialStream(#[from] PartialStreamError),
+
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
 }
-
-impl PartialStream {
-    pub fn is_finished(&self) -> bool {
-        self.data_buffer.len() == self.data_length as usize
-    }
-
-    pub fn write_part(&mut self, data_part: Vec<u8>) -> Result<()> {
-        let len = data_part
-            .len()
-            .min(self.data_length as usize - self.data_buffer.len());
-        self.data_buffer.write_all(&data_part[..len])?;
-
-        Ok(())
-    }
-}
-
-pub struct RelayListener {
-    pub channel: u8,
-    store: Rc<RefCell<Store>>,
-    _plugin_message_handler: plugin_messages::ReceivedEventHandler,
-    _tick_handler: tick::TickEventHandler,
-}
-
-impl RelayListener {
-    pub fn new(channel: u8) -> Result<Self> {
-        ensure!(
-            channel >= RELAY_CHANNEL_START_INDEX,
-            "channel < RELAY_CHANNEL_START_INDEX"
-        );
-
-        let store: Rc<RefCell<Store>> = Default::default();
-
-        let mut plugin_message_handler = plugin_messages::ReceivedEventHandler::new();
-        {
-            let store = Rc::downgrade(&store);
-            plugin_message_handler.on(move |event| {
-                if channel != event.channel {
-                    return;
-                }
-
-                if let Some(store) = store.upgrade() {
-                    let mut store = store.borrow_mut();
-                    let store = &mut *store;
-                    match Packet::decode(&mut Cursor::new(&event.data)) {
-                        Ok(packet) => {
-                            if let Err(e) = store.process_packet(packet) {
-                                error!("processing packet: {:#?}", e);
-                            }
-                        }
-
-                        Err(e) => {
-                            error!("decoding packet: {:#?}", e);
-                        }
-                    }
-                }
-            });
-        }
-        let mut tick_handler = tick::TickEventHandler::new();
-        {
-            let store = Rc::downgrade(&store);
-            tick_handler.on(move |_event| {
-                if let Some(store) = store.upgrade() {
-                    let mut store = store.borrow_mut();
-                    let store = &mut *store;
-                    store.tick();
-                }
-            });
-        }
-
-        Ok(Self {
-            channel,
-            store,
-            _plugin_message_handler: plugin_message_handler,
-            _tick_handler: tick_handler,
-        })
-    }
-
-    pub fn on<F>(&mut self, callback: F)
-    where
-        F: Fn(u8, &[u8]),
-        F: 'static,
-    {
-        let mut store = self.store.borrow_mut();
-        store.event_handlers.push(Box::new(callback));
-    }
-}
+type Result<T> = std::result::Result<T, StoreError>;
 
 #[derive(Default)]
-pub struct Store {
-    event_handlers: Vec<CallbackFn>,
+pub(crate) struct Store {
+    pub(crate) event_handlers: Vec<CallbackFn>,
     streams: HashMap<u8, PartialStream>,
     cleanup_times: HashMap<u8, Instant>,
 }
@@ -118,7 +32,7 @@ pub struct Store {
 impl Store {
     const STREAM_TIMEOUT: Duration = Duration::from_secs(10);
 
-    fn process_packet(&mut self, packet: Packet) -> Result<()> {
+    pub(crate) fn process_packet(&mut self, packet: Packet) -> Result<()> {
         debug!("process_packet {:?}", packet);
 
         let finished_stream = match packet {
@@ -150,7 +64,7 @@ impl Store {
                         None
                     }
                 } else {
-                    bail!("got non-Player scope");
+                    return Err(StoreError::Thing);
                 }
             }
 
@@ -170,7 +84,7 @@ impl Store {
 
                     stream.is_finished()
                 } else {
-                    bail!("found continue packet before start");
+                    return Err(StoreError::Thing2);
                 };
 
                 if is_finished {
@@ -192,7 +106,7 @@ impl Store {
         Ok(())
     }
 
-    fn tick(&mut self) {
+    pub(crate) fn tick(&mut self) {
         let now = Instant::now();
         let mut stream_ids_to_removes = self
             .cleanup_times

@@ -1,6 +1,5 @@
 use crate::{
-    error::*,
-    packet::{ContinuePacket, Scope, StartPacket},
+    packet::{ContinuePacket, ContinuePacketError, Scope, StartPacket, StartPacketError},
     Packet,
 };
 use lazy_static::lazy_static;
@@ -12,6 +11,22 @@ lazy_static! {
     static ref OUTGOING_PACKET_ID: Mutex<HashSet<u8>> = Default::default();
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum StreamError {
+    #[error("{0}")]
+    LengthOverflow(String),
+
+    #[error("can't find free outgoing packet id")]
+    PacketIdLimit,
+
+    #[error(transparent)]
+    StartPacket(#[from] StartPacketError),
+
+    #[error(transparent)]
+    ContinuePacket(#[from] ContinuePacketError),
+}
+type Result<T> = std::result::Result<T, StreamError>;
+
 // [u8; 64]
 #[derive(Debug)]
 pub struct Stream {
@@ -21,7 +36,11 @@ pub struct Stream {
 }
 impl Stream {
     pub fn new<S: Into<Scope>>(data: Vec<u8>, scope: S) -> Result<Self> {
-        ensure!(data.len() <= u16::MAX as usize, "data.len() > u16::MAX");
+        if data.len() > u16::MAX as usize {
+            return Err(StreamError::LengthOverflow(
+                "data.len() > u16::MAX".to_string(),
+            ));
+        }
 
         let stream_id = Self::new_outgoing_packet_id()?;
         Ok(Self {
@@ -32,10 +51,11 @@ impl Stream {
     }
 
     pub fn packets(&self) -> Result<Vec<Packet>> {
-        ensure!(
-            self.data.len() <= u16::MAX as usize,
-            "data.len() > u16::MAX"
-        );
+        if self.data.len() > u16::MAX as usize {
+            return Err(StreamError::LengthOverflow(
+                "data.len() > u16::MAX".to_string(),
+            ));
+        }
 
         let mut packets = vec![];
 
@@ -65,7 +85,7 @@ impl Stream {
             guard.insert(id);
             Ok(id)
         } else {
-            bail!("can't find free outgoing packet id");
+            Err(StreamError::PacketIdLimit)
         }
     }
 
