@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["PLUGIN_MESSAGE_DATA_LENGTH",""]],"struct":[["Stream",""]]});
+initSidebarItems({"constant":[["PLUGIN_MESSAGE_DATA_LENGTH",""]],"enum":[["StreamError",""]],"struct":[["Stream",""]]});

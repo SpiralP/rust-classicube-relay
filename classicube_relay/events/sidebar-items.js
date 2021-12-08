@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["RelayListener",""],["Store",""]],"type":[["CallbackFn",""]]});
+initSidebarItems({"enum":[["PartialStreamError",""]],"mod":[["store",""]],"struct":[["RelayListener",""]],"type":[["CallbackFn",""]]});

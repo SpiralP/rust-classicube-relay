@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["Packet",""],["Scope",""]],"struct":[["ContinuePacket",""],["Flags",""],["MapScope","all players in my map"],["PlayerScope","a single player"],["ServerScope",""],["StartPacket",""]]});
+initSidebarItems({"enum":[["ContinuePacketError",""],["FlagsError",""],["Packet",""],["Scope",""],["ScopeError",""],["StartPacketError",""],["StreamError",""]],"struct":[["ContinuePacket",""],["Flags",""],["MapScope","all players in my map"],["PlayerScope","a single player"],["ServerScope",""],["StartPacket",""]]});

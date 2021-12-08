@@ -1,1 +1,1 @@
-initSidebarItems({"constant":[["RELAY_CHANNEL_START_INDEX","start index of channels that the relay plugin listen for"]],"mod":[["error",""],["events",""],["packet",""],["stream",""]]});
+initSidebarItems({"constant":[["RELAY_CHANNEL_START_INDEX","start index of channels that the relay plugin listen for"]],"mod":[["events",""],["packet",""],["stream",""]]});
