@@ -1,4 +1,4 @@
-use classicube_helpers::events::plugin_messages;
+use classicube_helpers::events::net::PluginMessageReceivedEventHandler;
 use classicube_relay::{events::*, packet::*};
 use std::{cell::Cell, rc::Rc};
 
@@ -32,7 +32,7 @@ fn test_events_invalid_continue() {
         let mut data = Packet::Continue(ContinuePacket::new(1, data_part).unwrap())
             .encode()
             .unwrap();
-        plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
+        PluginMessageReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
 
     assert!(called.take().is_none());
@@ -57,7 +57,7 @@ fn test_events_single_start_packet() {
     let mut data = Packet::Start(StartPacket::new(1, PlayerScope::new(2), 2, data_part).unwrap())
         .encode()
         .unwrap();
-    plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
+    PluginMessageReceivedEventHandler::raise(200, data.as_mut_ptr());
 
     let args = called.take().unwrap();
     assert_eq!(args.0, 2);
@@ -85,7 +85,7 @@ fn test_events_multiple_packets() {
             Packet::Start(StartPacket::new(1, PlayerScope::new(2), 64, data_part).unwrap())
                 .encode()
                 .unwrap();
-        plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
+        PluginMessageReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
     {
         let mut data_part = vec![];
@@ -93,7 +93,7 @@ fn test_events_multiple_packets() {
         let mut data = Packet::Continue(ContinuePacket::new(1, data_part).unwrap())
             .encode()
             .unwrap();
-        plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
+        PluginMessageReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
 
     let args = called.take().unwrap();
@@ -122,7 +122,7 @@ fn test_events_restart() {
             Packet::Start(StartPacket::new(1, PlayerScope::new(2), 64, data_part).unwrap())
                 .encode()
                 .unwrap();
-        plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
+        PluginMessageReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
     {
         let mut data_part = vec![];
@@ -131,7 +131,7 @@ fn test_events_restart() {
             Packet::Start(StartPacket::new(1, PlayerScope::new(2), 10, data_part).unwrap())
                 .encode()
                 .unwrap();
-        plugin_messages::ReceivedEventHandler::raise(200, data.as_mut_ptr());
+        PluginMessageReceivedEventHandler::raise(200, data.as_mut_ptr());
     }
 
     let args = called.take().unwrap();

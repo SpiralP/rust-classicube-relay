@@ -2,7 +2,7 @@ pub mod store;
 
 use self::store::Store;
 use crate::{packet::Packet, RELAY_CHANNEL_START_INDEX};
-use classicube_helpers::{events::plugin_messages, tick};
+use classicube_helpers::{events::net::PluginMessageReceivedEventHandler, tick};
 use std::{
     cell::RefCell,
     io::{Cursor, Write},
@@ -47,7 +47,7 @@ impl PartialStream {
 pub struct RelayListener {
     pub channel: u8,
     store: Rc<RefCell<Store>>,
-    _plugin_message_handler: plugin_messages::ReceivedEventHandler,
+    _plugin_message_handler: PluginMessageReceivedEventHandler,
     _tick_handler: tick::TickEventHandler,
 }
 
@@ -59,7 +59,7 @@ impl RelayListener {
 
         let store: Rc<RefCell<Store>> = Default::default();
 
-        let mut plugin_message_handler = plugin_messages::ReceivedEventHandler::new();
+        let mut plugin_message_handler = PluginMessageReceivedEventHandler::new();
         {
             let store = Rc::downgrade(&store);
             plugin_message_handler.on(move |event| {

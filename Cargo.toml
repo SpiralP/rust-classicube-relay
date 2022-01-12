@@ -6,8 +6,8 @@ publish = false
 
 [dependencies]
 byteorder = "1"
-classicube-helpers = { git = "https://github.com/SpiralP/rust-classicube-helpers.git", branch = "cpe-plugin-messages" }
-classicube-sys = { git = "https://github.com/SpiralP/rust-classicube-sys.git", branch = "cpe-plugin-messages" }
+classicube-helpers = { git = "https://github.com/SpiralP/rust-classicube-helpers.git" }
+classicube-sys = { git = "https://github.com/SpiralP/rust-classicube-sys.git" }
 lazy_static = "1"
 thiserror = "1"
 tracing = "0.1"
