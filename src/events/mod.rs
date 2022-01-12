@@ -3,6 +3,7 @@ pub mod store;
 use self::store::Store;
 use crate::{packet::Packet, RELAY_CHANNEL_START_INDEX};
 use classicube_helpers::{events::net::PluginMessageReceivedEventHandler, tick};
+use classicube_sys::EventAPIVersion;
 use std::{
     cell::RefCell,
     io::{Cursor, Write},
@@ -19,6 +20,9 @@ pub enum PartialStreamError {
 
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    #[error("EventAPIVersion == 0")]
+    EventAPIVersion,
 }
 type Result<T> = std::result::Result<T, PartialStreamError>;
 
@@ -55,6 +59,10 @@ impl RelayListener {
     pub fn new(channel: u8) -> Result<Self> {
         if channel < RELAY_CHANNEL_START_INDEX {
             return Err(PartialStreamError::StartIndex(channel));
+        }
+
+        if unsafe { EventAPIVersion } == 0 {
+            return Err(PartialStreamError::EventAPIVersion);
         }
 
         let store: Rc<RefCell<Store>> = Default::default();
