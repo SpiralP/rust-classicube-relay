@@ -21,7 +21,19 @@
             rustPlatform.bindgenHook
           ];
 
+          buildPhase = ''
+            runHook preBuild
+            cargo doc --no-deps
+            runHook postBuild
+          '';
+
           dontUseCargoParallelTests = true;
+
+          installPhase = ''
+            runHook preInstall
+            mv target/doc $out
+            runHook postInstall
+          '';
         });
       });
 }
