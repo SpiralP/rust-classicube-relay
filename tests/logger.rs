@@ -1,6 +1,7 @@
+use tracing_subscriber::EnvFilter;
+
 pub fn initialize(debug: bool, other_crates: bool) {
     use std::sync::Once;
-    use tracing_subscriber::{filter::EnvFilter, prelude::*};
 
     static ONCE: Once = Once::new();
     ONCE.call_once(move || {
@@ -22,7 +23,6 @@ pub fn initialize(debug: bool, other_crates: bool) {
             .with_thread_names(false)
             .with_ansi(true)
             .without_time()
-            .finish()
             .init();
     });
 }
