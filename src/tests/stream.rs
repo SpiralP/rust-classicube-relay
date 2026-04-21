@@ -1,4 +1,4 @@
-use classicube_relay::{packet::*, stream::*};
+use crate::{packet::*, stream::*};
 
 #[test]
 fn test_stream() {

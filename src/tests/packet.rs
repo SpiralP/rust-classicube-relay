@@ -1,5 +1,6 @@
-use classicube_relay::packet::*;
 use std::io::Cursor;
+
+use crate::packet::*;
 
 #[test]
 fn test_decode_flags() {

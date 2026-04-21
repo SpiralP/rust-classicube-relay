@@ -15,4 +15,5 @@ tracing = "0.1"
 ci = []
 
 [dev-dependencies]
+classicube-sys = "4"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
