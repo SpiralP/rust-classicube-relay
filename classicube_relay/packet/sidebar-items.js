@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ContinuePacketError","FlagsError","Packet","Scope","ScopeError","StartPacketError","StreamError"],"struct":["ContinuePacket","Flags","MapScope","PlayerScope","ServerScope","StartPacket"]};
