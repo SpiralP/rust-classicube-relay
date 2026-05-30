@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="rust-classicube-relay"><title>classicube_relay - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-e56847b5.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="classicube_relay" data-themes="" data-resource-suffix="" data-rustdoc-version="1.91.1 (ed61e7d7e 2025-11-07) (built from a source tarball)" data-channel="1.91.1" data-search-js="search-e256b49e.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-6dc2a7f3.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate classicube_relay</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../classicube_relay/index.html">classicube_<wbr>relay</a><span class="version">0.1.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#rust-classicube-relay" title="rust-classicube-relay">rust-classicube-relay</a><ul><li><a href="#examples" title="Examples">Examples</a></li></ul></li></ul><h3><a href="#reexports">Crate Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#constants" title="Constants">Constants</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>classicube_<wbr>relay</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/classicube_relay/lib.rs.html#1-12">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="rust-classicube-relay"><a class="doc-anchor" href="#rust-classicube-relay">§</a>rust-classicube-relay</h2>
+<p>Library for sending and receiving relay messages from the <a href="https://github.com/SpiralP/MCGalaxy-Relay-Plugin">MCGalaxy-Relay-Plugin</a>.</p>
+<h3 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h3>
+<p>Receive data from other players:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>classicube_relay::RelayListener;
+
+<span class="kw">let </span>channel = <span class="number">200</span>;
+<span class="kw">let </span><span class="kw-2">mut </span>listener = RelayListener::new(channel).unwrap();
+listener.on(<span class="kw">move </span>|player_id: u8, data: <span class="kw-2">&amp;</span>[u8]| {
+    <span class="macro">println!</span>(<span class="string">"Player {} sent {:?}"</span>, player_id, data);
+});</code></pre></div>
+<p>Send data to another player by id:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>classicube_relay::{packet::PlayerScope, Stream};
+
+<span class="kw">let </span>channel = <span class="number">200</span>;
+<span class="kw">let </span><span class="kw-2">mut </span>stream = Stream::new(
+    <span class="string">b"hello!"</span>.to_vec(),
+    PlayerScope::new(<span class="number">123</span>)
+).unwrap();
+<span class="kw">for </span>packet <span class="kw">in </span>stream.packets().unwrap() {
+    <span class="kw">let </span><span class="kw-2">mut </span>data = packet.encode().unwrap();
+    <span class="kw">unsafe </span>{
+        classicube_sys::CPE_SendPluginMessage(channel, data.as_mut_ptr());
+    }
+}</code></pre></div>
+<p>Send data to all players in my same map:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>classicube_relay::{packet::MapScope, Stream};
+
+<span class="kw">let </span>channel = <span class="number">200</span>;
+<span class="kw">let </span><span class="kw-2">mut </span>stream = Stream::new(
+    <span class="string">b"hello!"</span>.to_vec(),
+    MapScope::default()
+).unwrap();
+<span class="kw">for </span>packet <span class="kw">in </span>stream.packets().unwrap() {
+    <span class="kw">let </span><span class="kw-2">mut </span>data = packet.encode().unwrap();
+    <span class="kw">unsafe </span>{
+        classicube_sys::CPE_SendPluginMessage(channel, data.as_mut_ptr());
+    }
+}</code></pre></div></div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.RelayListener"><code>pub use self::events::<a class="struct" href="events/struct.RelayListener.html" title="struct classicube_relay::events::RelayListener">RelayListener</a>;</code></dt><dt id="reexport.Packet"><code>pub use self::packet::<a class="enum" href="packet/enum.Packet.html" title="enum classicube_relay::packet::Packet">Packet</a>;</code></dt><dt id="reexport.Stream"><code>pub use self::stream::<a class="struct" href="stream/struct.Stream.html" title="struct classicube_relay::stream::Stream">Stream</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="events/index.html" title="mod classicube_relay::events">events</a></dt><dt><a class="mod" href="packet/index.html" title="mod classicube_relay::packet">packet</a></dt><dt><a class="mod" href="stream/index.html" title="mod classicube_relay::stream">stream</a></dt></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.RELAY_CHANNEL_START_INDEX.html" title="constant classicube_relay::RELAY_CHANNEL_START_INDEX">RELAY_<wbr>CHANNEL_<wbr>START_<wbr>INDEX</a></dt><dd>start index of channels that the relay plugin listen for</dd></dl><script type="text/json" id="notable-traits-data">{"&[u8]":"<h3>Notable traits for <code>&amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.91.1/std/primitive.u8.html\">u8</a>]</code></h3><pre><code><div class=\"where\">impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.1/std/io/trait.Read.html\" title=\"trait std::io::Read\">Read</a> for &amp;[<a class=\"primitive\" href=\"https://doc.rust-lang.org/1.91.1/std/primitive.u8.html\">u8</a>]</div>"}</script></section></div></main></body></html>
