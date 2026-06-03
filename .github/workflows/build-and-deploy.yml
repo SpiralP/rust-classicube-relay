@@ -9,12 +9,15 @@ permissions:
   contents: read # for checkout
 
 jobs:
-  build:
-    uses: ./.github/workflows/build.yml
+  build-docs:
+    uses: SpiralP/github-reusable-workflows/.github/workflows/build.yml@e66ed830e302be96b4cbd21fae44132d5881ae53 # main
+    with:
+      flake-attribute: docs
+      upload-build-result: true
 
   deploy:
     runs-on: ubuntu-24.04
-    needs: build
+    needs: build-docs
     if: ${{ success() && always() }}
     permissions:
       pages: write # for deploying to GitHub Pages

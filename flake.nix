@@ -6,8 +6,8 @@
 
   outputs = inputs@{ flake-utils, ... }:
     flake-utils.lib.makeOutputs inputs
-      ({ lib, pkgs, makeRustPackage, dev, ... }: {
-        default = makeRustPackage pkgs (self: {
+      ({ lib, pkgs, makeRustPackage, ... }:
+        let
           src = lib.sourceByRegex ./. [
             "^\.cargo(/.*)?$"
             "^build\.rs$"
@@ -20,20 +20,31 @@
             pkg-config
             rustPlatform.bindgenHook
           ];
+        in
+        {
+          default = makeRustPackage pkgs (self: {
+            inherit src nativeBuildInputs;
 
-          buildPhase = ''
-            runHook preBuild
-            cargo doc --no-deps
-            runHook postBuild
-          '';
+            dontUseCargoParallelTests = true;
+          });
 
-          dontUseCargoParallelTests = true;
+          docs = makeRustPackage pkgs (self: {
+            inherit src nativeBuildInputs;
 
-          installPhase = ''
-            runHook preInstall
-            mv target/doc $out
-            runHook postInstall
-          '';
+            buildPhase = ''
+              runHook preBuild
+              cargo doc --no-deps
+              runHook postBuild
+            '';
+
+            # tests run in the default build; the docs output only needs rustdoc
+            doCheck = false;
+
+            installPhase = ''
+              runHook preInstall
+              mv target/doc $out
+              runHook postInstall
+            '';
+          });
         });
-      });
 }

@@ -1,0 +1,31 @@
+name: release
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read # for build's checkout
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    if: "${{ ! startsWith(github.event.head_commit.message, 'chore(release): ') }}"
+
+  release:
+    uses: SpiralP/github-reusable-workflows/.github/workflows/release.yml@e66ed830e302be96b4cbd21fae44132d5881ae53 # main
+    needs: build
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false # do not cancel in-progress jobs
+    permissions: {} # none needed, uses a custom GitHub App token
+    with:
+      package-name: classicube-relay
+      extends: .github/semantic-release.json
+      replace-files: |
+        Cargo.lock
+        Cargo.toml
+    secrets:
+      app-client-id: ${{ secrets.APP_CLIENT_ID }}
+      app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
