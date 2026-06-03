@@ -10,7 +10,7 @@ use classicube_helpers::{events::net::PluginMessageReceivedEventHandler, tick};
 use tracing::error;
 
 use self::store::Store;
-use crate::{packet::Packet, RELAY_CHANNEL_START_INDEX};
+use crate::{RELAY_CHANNEL_START_INDEX, packet::Packet};
 
 pub type CallbackFn = Box<dyn Fn(u8, &[u8])>;
 

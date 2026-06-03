@@ -3,8 +3,9 @@ mod flags;
 mod scope;
 mod start;
 
-pub use self::{flags::*, r#continue::*, scope::*, start::*};
 use std::io::Read;
+
+pub use self::{r#continue::*, flags::*, scope::*, start::*};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StreamError {

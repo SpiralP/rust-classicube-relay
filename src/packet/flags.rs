@@ -1,5 +1,6 @@
-use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::io::Read;
+
+use byteorder::{ReadBytesExt, WriteBytesExt};
 
 #[derive(Debug, thiserror::Error)]
 pub enum FlagsError {

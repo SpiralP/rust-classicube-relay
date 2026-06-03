@@ -1,6 +1,8 @@
-use super::{flags::Flags, scope::Scope, FlagsError, Packet, ScopeError};
-use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use std::io::{Read, Write};
+
+use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
+
+use super::{FlagsError, Packet, ScopeError, flags::Flags, scope::Scope};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StartPacketError {

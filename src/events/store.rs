@@ -1,10 +1,12 @@
-use super::{CallbackFn, PartialStream, PartialStreamError};
-use crate::packet::{ContinuePacket, Packet, PlayerScope, Scope, StartPacket};
 use std::{
     collections::HashMap,
     time::{Duration, Instant},
 };
+
 use tracing::{debug, error, warn};
+
+use super::{CallbackFn, PartialStream, PartialStreamError};
+use crate::packet::{ContinuePacket, Packet, PlayerScope, Scope, StartPacket};
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {

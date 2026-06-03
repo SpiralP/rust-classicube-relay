@@ -1,9 +1,11 @@
-use crate::{
-    packet::{ContinuePacket, ContinuePacketError, Scope, StartPacket, StartPacketError},
-    Packet,
-};
-use lazy_static::lazy_static;
 use std::{collections::HashSet, io::Cursor, sync::Mutex};
+
+use lazy_static::lazy_static;
+
+use crate::{
+    Packet,
+    packet::{ContinuePacket, ContinuePacketError, Scope, StartPacket, StartPacketError},
+};
 
 pub const PLUGIN_MESSAGE_DATA_LENGTH: usize = 64;
 

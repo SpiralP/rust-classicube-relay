@@ -1,5 +1,6 @@
-use super::{flags::Flags, FlagsError, Packet};
 use std::io::{Read, Write};
+
+use super::{FlagsError, Packet, flags::Flags};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ContinuePacketError {
