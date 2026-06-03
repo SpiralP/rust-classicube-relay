@@ -14,18 +14,46 @@ jobs:
     if: "${{ ! startsWith(github.event.head_commit.message, 'chore(release): ') }}"
 
   release:
-    uses: SpiralP/github-reusable-workflows/.github/workflows/release.yml@e66ed830e302be96b4cbd21fae44132d5881ae53 # main
+    uses: SpiralP/github-reusable-workflows/.github/workflows/release.yml@c0cc332cae83f1819f28365f3adb1193bb540c4f # main
     needs: build
     concurrency:
       group: release-${{ github.ref }}
       cancel-in-progress: false # do not cancel in-progress jobs
     permissions: {} # none needed, uses a custom GitHub App token
     with:
+      environment-name: release
       package-name: classicube-relay
       extends: .github/semantic-release.json
       replace-files: |
         Cargo.lock
         Cargo.toml
+      # Dispatch docs.yml on the just-pushed release tag during the publish
+      # phase, so it builds + stages a `github-pages` artifact against the
+      # bumped Cargo.toml. deploy-docs pipes it into this run for Pages.
+      build-workflow: docs.yml
     secrets:
       app-client-id: ${{ secrets.APP_CLIENT_ID }}
       app-private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+  deploy-docs:
+    name: Deploy docs to Pages
+    needs: release
+    # only on a real, non-prerelease release
+    if: ${{ needs.release.outputs.tag && !contains(needs.release.outputs.tag, '-') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read # cross-run artifact download
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page-url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deploy
+        uses: SpiralP/github-reusable-workflows/.github/actions/deploy-pages-from-run@c0cc332cae83f1819f28365f3adb1193bb540c4f # main
+        with:
+          run-id: ${{ needs.release.outputs.dispatched-run-id }}
