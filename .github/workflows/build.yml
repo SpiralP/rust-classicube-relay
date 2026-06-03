@@ -2,9 +2,7 @@ name: build
 
 on:
   pull_request:
-    branches: [main, master]
-  push:
-    branches-ignore: [main, master]
+    branches: [main, master, alpha, beta]
   workflow_call:
   workflow_dispatch:
 
