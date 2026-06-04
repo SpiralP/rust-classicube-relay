@@ -14,5 +14,50 @@ permissions:
   contents: read # for checkout
 
 jobs:
-  build:
+  linux_nix:
     uses: SpiralP/github-reusable-workflows/.github/workflows/build.yml@af0fd7061daddfea981647f723aa3fc9bf8e1a84 # main
+
+  windows:
+    name: Build & Test Windows ${{ matrix.config.arch }}
+    runs-on: windows-2025
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { arch: x86_64, target: x86_64-pc-windows-msvc }
+          # - { arch: i686, target: i686-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/install-build-test
+        with:
+          target: ${{ matrix.config.target }}
+
+  linux:
+    name: Build & Test Linux ${{ matrix.config.arch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { arch: x86_64, target: x86_64-unknown-linux-gnu }
+          # - { arch: i686, target: i686-unknown-linux-gnu }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/install-build-test
+        with:
+          target: ${{ matrix.config.target }}
+
+  mac:
+    name: Build & Test macOS ${{ matrix.config.arch }}
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { arch: aarch64, target: aarch64-apple-darwin }
+          # - { arch: x86_64, target: x86_64-apple-darwin }
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/install-build-test
+        with:
+          target: ${{ matrix.config.target }}
