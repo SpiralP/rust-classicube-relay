@@ -14,7 +14,7 @@ jobs:
     if: "${{ ! startsWith(github.event.head_commit.message, 'chore(release): ') }}"
 
   release:
-    uses: SpiralP/github-reusable-workflows/.github/workflows/release.yml@16b82b3992f607ddfc9cf5d222c1d482d5db4940 # main
+    uses: SpiralP/github-reusable-workflows/.github/workflows/release.yml@779c0da2b5f763494dffddf0bbfb4884d1642ba6 # main
     needs: build
     concurrency:
       group: release-${{ github.ref }}
@@ -54,6 +54,6 @@ jobs:
       cancel-in-progress: false
     steps:
       - id: deploy
-        uses: SpiralP/github-reusable-workflows/.github/actions/deploy-pages-from-run@16b82b3992f607ddfc9cf5d222c1d482d5db4940 # main
+        uses: SpiralP/github-reusable-workflows/.github/actions/deploy-pages-from-run@779c0da2b5f763494dffddf0bbfb4884d1642ba6 # main
         with:
           run-id: ${{ needs.release.outputs.dispatched-run-id }}
