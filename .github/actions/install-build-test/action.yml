@@ -24,7 +24,7 @@ runs:
       run: cargo build --target ${{ inputs.target }}
       shell: bash
 
-    - uses: taiki-e/install-action@7b8d4719ee4aaa279bdf55df38dacb9ebfe12a6c # v2.87.6
+    - uses: taiki-e/install-action@9534c84618278caac52cb373bb164ed464dbd8af # v2.87.11
       with:
         tool: cargo-nextest
 
